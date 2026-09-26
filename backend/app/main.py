@@ -35,6 +35,17 @@ def buildings():
     return repository.list_buildings()
 
 
+@app.get("/api/profiles")
+def profiles(scenario: str = Query("baseline", min_length=1)):
+    rows = repository.get_all_profiles(scenario)
+    grouped: dict[str, list[dict]] = {}
+    for row in rows:
+        item = dict(row)
+        slug = item.pop("slug")
+        grouped.setdefault(slug, []).append(item)
+    return grouped
+
+
 @app.get("/api/buildings/{slug}")
 def building(slug: str):
     row = repository.get_building(slug)
@@ -100,6 +111,7 @@ def simulate(slug: str, request: InterventionRequest):
         profile_rows,
         weather_rows,
         floor_area_ft2=float(building_row["floor_area_ft2"]),
+        roof_area_ft2=float(building_row["roof_area_ft2"]),
         led=request.led,
         hvac=request.hvac,
         solar=request.solar,
