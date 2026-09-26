@@ -3,6 +3,7 @@ import {
   Cartesian2,
   Cartesian3,
   Cesium3DTileset,
+  ConstantProperty,
   ClassificationType,
   Color,
   ColorMaterialProperty,
@@ -312,10 +313,12 @@ function App() {
 
       const label = viewer?.entities.getById(`label-${building.slug}`)?.label
       if (label) {
-        label.scale = isSelected ? 1.08 : 1.0
-        label.backgroundColor = isSelected
-          ? Color.fromCssColorString('#DCE9E2').withAlpha(0.99)
-          : Color.fromCssColorString('#F7F8F4').withAlpha(0.98)
+        label.scale = new ConstantProperty(isSelected ? 1.08 : 1.0)
+        label.backgroundColor = new ConstantProperty(
+          isSelected
+            ? Color.fromCssColorString('#DCE9E2').withAlpha(0.99)
+            : Color.fromCssColorString('#F7F8F4').withAlpha(0.98),
+        )
       }
     }
   }, [buildings, profiles, scenarioProfiles, currentIndex, thresholds, selectedSlug])
