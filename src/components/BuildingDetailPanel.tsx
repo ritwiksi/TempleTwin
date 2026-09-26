@@ -1,9 +1,13 @@
-import type { BuildingMetadata, EnergyState } from '../types/energy'
+import type { BuildingMetadata, EnergyState, InterventionFlags } from '../types/energy'
 
 type Props = {
   building: BuildingMetadata
+  baselineProfile: EnergyState[]
   profile: EnergyState[]
   currentIndex: number
+  interventions: InterventionFlags
+  isSimulating: boolean
+  onToggle: (key: keyof InterventionFlags) => void
   onClose: () => void
 }
 
@@ -21,10 +25,28 @@ function buildPath(values: number[], width: number, height: number): string {
     .join(' ')
 }
 
-export function BuildingDetailPanel({ building, profile, currentIndex, onClose }: Props) {
+function energyKwh(profile: EnergyState[]): number {
+  return profile.reduce((sum, row) => sum + row.demand_kw * 0.25, 0)
+}
+
+export function BuildingDetailPanel({
+  building,
+  baselineProfile,
+  profile,
+  currentIndex,
+  interventions,
+  isSimulating,
+  onToggle,
+  onClose,
+}: Props) {
   const current = profile[currentIndex]
-  const fullDayEnergyKwh = profile.reduce((sum, row) => sum + row.demand_kw * 0.25, 0)
-  const annualKwh = building.modeled_annual_eui_kwh_ft2 * building.floor_area_ft2
+  const fullDayEnergyKwh = energyKwh(profile)
+  const baselineDayEnergyKwh = energyKwh(baselineProfile)
+  const baselineAnnualKwh = building.modeled_annual_eui_kwh_ft2 * building.floor_area_ft2
+  const scenarioAnnualKwh =
+    baselineDayEnergyKwh > 0
+      ? baselineAnnualKwh * (fullDayEnergyKwh / baselineDayEnergyKwh)
+      : baselineAnnualKwh
   const fullDayCarbonKg = profile.reduce((sum, row) => sum + (row.carbon_kg ?? 0), 0)
 
   const width = 280
@@ -49,28 +71,82 @@ export function BuildingDetailPanel({ building, profile, currentIndex, onClose }
         </button>
       </div>
 
+      <div className="intervention-group" aria-label="Decarbonization interventions">
+        <div className="intervention-head">
+          <span>Interventions</span>
+          {isSimulating && <span className="simulating-copy">Updating…</span>}
+        </div>
+
+        <button
+          type="button"
+          className={`intervention-toggle ${interventions.led ? 'active' : ''}`}
+          onClick={() => onToggle('led')}
+          disabled={isSimulating}
+        >
+          <span>
+            <strong>LED retrofit</strong>
+            <small>Lighting load only · 50% scenario reduction</small>
+          </span>
+          <span className="toggle-track"><span /></span>
+        </button>
+
+        <button
+          type="button"
+          className={`intervention-toggle ${interventions.hvac ? 'active' : ''}`}
+          onClick={() => onToggle('hvac')}
+          disabled={isSimulating}
+        >
+          <span>
+            <strong>HVAC efficiency</strong>
+            <small>HVAC load only · 10% scenario reduction</small>
+          </span>
+          <span className="toggle-track"><span /></span>
+        </button>
+
+        <button
+          type="button"
+          className={`intervention-toggle ${interventions.solar ? 'active' : ''}`}
+          onClick={() => onToggle('solar')}
+          disabled={isSimulating}
+        >
+          <span>
+            <strong>Rooftop solar</strong>
+            <small>Reduces grid import, not building demand</small>
+          </span>
+          <span className="toggle-track"><span /></span>
+        </button>
+      </div>
+
       <div className="detail-grid">
         <div className="detail-stat">
           <span>Current demand</span>
           <strong>{current.demand_kw.toFixed(0)} kW</strong>
         </div>
         <div className="detail-stat">
-          <span>Full-day energy</span>
-          <strong>{fullDayEnergyKwh.toFixed(0)} kWh</strong>
+          <span>Grid import now</span>
+          <strong>{current.grid_import_kw.toFixed(0)} kW</strong>
         </div>
         <div className="detail-stat">
-          <span>Modeled annual electricity</span>
-          <strong>{(annualKwh / 1_000_000).toFixed(2)} GWh/yr</strong>
+          <span>Full-day energy</span>
+          <strong>{fullDayEnergyKwh.toFixed(0)} kWh</strong>
         </div>
         <div className="detail-stat">
           <span>Full-day carbon</span>
           <strong>{fullDayCarbonKg.toFixed(0)} kg CO₂e</strong>
         </div>
+        <div className="detail-stat detail-stat-wide">
+          <span>Modeled annual electricity</span>
+          <strong>{(scenarioAnnualKwh / 1_000_000).toFixed(2)} GWh/yr</strong>
+        </div>
+        <div className="detail-stat detail-stat-wide">
+          <span>Solar generation now</span>
+          <strong>{current.solar_kw.toFixed(0)} kW</strong>
+        </div>
       </div>
 
       <div className="chart-block">
         <div className="chart-head">
-          <span>24-hour load curve</span>
+          <span>24-hour building demand</span>
           <span>{String(current.hour).padStart(2, '0')}:{String((currentIndex % 4) * 15).padStart(2, '0')}</span>
         </div>
         <svg className="load-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Friday electricity demand curve">
@@ -87,7 +163,8 @@ export function BuildingDetailPanel({ building, profile, currentIndex, onClose }
       </div>
 
       <div className="detail-footnote">
-        Carbon uses EPA eGRID RFCE total-output CO₂e. Building electricity is modeled.
+        Building electricity is modeled. Intervention savings are scenario assumptions;
+        solar uses cached Open-Meteo irradiance and estimated usable roof area.
       </div>
     </div>
   )
