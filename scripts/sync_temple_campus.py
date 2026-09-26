@@ -411,16 +411,25 @@ def benchmark_match(
 
 def comstock_type(name: str, use_value: str) -> tuple[str, str]:
     text = f"{name} {use_value}".lower()
+
+    # Preserve the original validated focus-building mappings.
+    if "science" in text and "research" in text and "serc" in text:
+        return "largeoffice", "research/laboratory"
+    if "beury" in text:
+        return "secondaryschool", "research/academic"
+    if "engineering" in text and "garage" not in text:
+        return "mediumoffice", "engineering/academic"
+
     if any(x in text for x in ("residence", "housing", "apartment", "dorm", "towers")):
         return "largehotel", "residential proxy"
     if any(x in text for x in ("student center", "bookstore", "retail", "shops")):
         return "retailstandalone", "student/retail"
     if any(x in text for x in ("recreation", "fitness", "athletic", "gym", "star")):
         return "secondaryschool", "recreation/academic"
+    if any(x in text for x in ("science", "research", "biology", "laboratory", " lab")):
+        return "largeoffice", "research/laboratory"
     if any(x in text for x in ("library", "learning", "classroom", "education", "school", "college")):
         return "secondaryschool", "academic/classroom"
-    if any(x in text for x in ("science", "research", "biology", "engineering", "lab", "beury")):
-        return "largeoffice", "research/laboratory"
     if any(x in text for x in ("theater", "theatre", "arts", "music", "presser", "rock hall")):
         return "secondaryschool", "arts/academic"
     if any(x in text for x in ("garage", "parking", "facilities", "maintenance")):
