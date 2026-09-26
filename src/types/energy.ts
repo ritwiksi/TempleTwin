@@ -43,3 +43,10 @@ export type BuildingMetadata = {
   modeled_annual_eui_kwh_ft2: number
   model_notes: string
 }
+
+
+export type InterventionFlags = {
+  led: boolean
+  hvac: boolean
+  solar: boolean
+}
