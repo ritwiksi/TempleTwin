@@ -15,9 +15,11 @@ from app.config.model_parameters import (
     HEATING_BETA_PER_F,
     HVAC_WEATHER_FACTOR_MAX,
     HVAC_WEATHER_FACTOR_MIN,
+    SIMULATION_WEATHER_HOURS,
     TEMPLE_LATITUDE,
     TEMPLE_LONGITUDE,
-    WEATHER_DATE,
+    WEATHER_END_DATE,
+    WEATHER_START_DATE,
 )
 
 
@@ -40,8 +42,8 @@ def fetch_open_meteo_weather() -> list[WeatherHour]:
     params = {
         "latitude": TEMPLE_LATITUDE,
         "longitude": TEMPLE_LONGITUDE,
-        "start_date": WEATHER_DATE,
-        "end_date": WEATHER_DATE,
+        "start_date": WEATHER_START_DATE,
+        "end_date": WEATHER_END_DATE,
         "hourly": (
             "temperature_2m,relative_humidity_2m,cloud_cover,"
             "shortwave_radiation,direct_normal_irradiance,weather_code"
@@ -55,8 +57,11 @@ def fetch_open_meteo_weather() -> list[WeatherHour]:
 
     hourly = payload.get("hourly", {})
     times = hourly.get("time", [])
-    if len(times) != 24:
-        raise RuntimeError(f"Expected 24 Open-Meteo hourly rows, got {len(times)}")
+    if len(times) != SIMULATION_WEATHER_HOURS:
+        raise RuntimeError(
+            f"Expected {SIMULATION_WEATHER_HOURS} Open-Meteo hourly rows, "
+            f"got {len(times)}"
+        )
 
     rows = []
     for index, timestamp in enumerate(times):
@@ -87,13 +92,26 @@ def weather_factor(temperature_f: float) -> float:
 
 
 def interpolate_temperature(weather: list[WeatherHour], timestamp: str) -> float:
+    """Interpolate hourly weather across the continuous simulation window."""
+    if not weather:
+        raise ValueError("Weather rows are empty")
+
     ts = datetime.fromisoformat(timestamp)
-    hour = ts.hour
-    fraction = ts.minute / 60.0
-    current = weather[hour].temperature_f
-    if hour == 23:
+    if ts.tzinfo is not None:
+        ts = ts.replace(tzinfo=None)
+
+    first = datetime.fromisoformat(weather[0].timestamp)
+    hours_from_start = (ts - first).total_seconds() / 3600.0
+    index = int(hours_from_start)
+    fraction = hours_from_start - index
+
+    if index < 0 or index >= len(weather):
+        raise ValueError(f"Timestamp {timestamp} is outside cached weather range")
+
+    current = weather[index].temperature_f
+    if index + 1 >= len(weather):
         return current
-    next_temp = weather[hour + 1].temperature_f
+    next_temp = weather[index + 1].temperature_f
     return current + (next_temp - current) * fraction
 
 
