@@ -15,10 +15,11 @@ from app.config.model_parameters import (
     CAMPUS_ELECTRIC_EUI_KWH_FT2,
     EGRID_RFCE_CO2E_KG_PER_KWH,
     INTERVAL_MINUTES,
-    INTERVALS_PER_DAY,
+    SIMULATION_INTERVALS,
+    SIMULATION_WEATHER_HOURS,
 )
 from app.database import get_connection
-from app.services.profile_model import annual_target_kwh, generate_friday_profile
+from app.services.profile_model import annual_target_kwh, generate_simulation_profile
 from app.services.weather_service import (
     WeatherHour,
     adjust_hvac_kw,
@@ -148,7 +149,7 @@ def load_weather(conn) -> list[WeatherHour]:
 def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]) -> None:
     with conn.cursor() as cur:
         for building in load_buildings():
-            rows = generate_friday_profile(building.slug)
+            rows = generate_simulation_profile(building.slug)
             cur.execute(
                 """
                 DELETE FROM building_hourly_state
@@ -157,6 +158,7 @@ def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]
                 (building_ids[building.slug],),
             )
 
+            insert_rows = []
             for row in rows:
                 temperature_f = interpolate_temperature(weather, row.timestamp)
                 adjusted_hvac_kw = adjust_hvac_kw(row.hvac_kw, temperature_f)
@@ -169,21 +171,7 @@ def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]
                 intensity = demand_kw * 1000.0 / building.floor_area_ft2
                 interval_kwh = demand_kw * (INTERVAL_MINUTES / 60.0)
                 carbon_kg = interval_kwh * EGRID_RFCE_CO2E_KG_PER_KWH
-
-                cur.execute(
-                    """
-                    INSERT INTO building_hourly_state (
-                        timestamp, building_id, scenario_id,
-                        hvac_kw, lighting_kw, process_kw, other_kw,
-                        demand_kw, solar_kw, grid_import_kw,
-                        energy_intensity_w_ft2, carbon_kg
-                    )
-                    VALUES (
-                        %s, %s, 'baseline',
-                        %s, %s, %s, %s,
-                        %s, 0, %s, %s, %s
-                    )
-                    """,
+                insert_rows.append(
                     (
                         row.timestamp,
                         building_ids[building.slug],
@@ -195,8 +183,25 @@ def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]
                         demand_kw,
                         intensity,
                         carbon_kg,
-                    ),
+                    )
                 )
+
+            cur.executemany(
+                """
+                INSERT INTO building_hourly_state (
+                    timestamp, building_id, scenario_id,
+                    hvac_kw, lighting_kw, process_kw, other_kw,
+                    demand_kw, solar_kw, grid_import_kw,
+                    energy_intensity_w_ft2, carbon_kg
+                )
+                VALUES (
+                    %s, %s, 'baseline',
+                    %s, %s, %s, %s,
+                    %s, 0, %s, %s, %s
+                )
+                """,
+                insert_rows,
+            )
     conn.commit()
 
 
@@ -221,7 +226,7 @@ def verify(conn) -> None:
     expected = {building.slug for building in load_buildings()}
     found = {row["slug"] for row in rows if row["slug"] in expected}
     if found != expected or any(
-        row["row_count"] != INTERVALS_PER_DAY
+        row["row_count"] != SIMULATION_INTERVALS
         for row in rows
         if row["slug"] in expected
     ):
@@ -229,11 +234,14 @@ def verify(conn) -> None:
             f"Tiger seed verification failed: expected {len(expected)} buildings, "
             f"found {len(found)}"
         )
-    if weather_count != 24:
-        raise RuntimeError(f"Expected 24 cached weather rows, got {weather_count}")
+    if weather_count != SIMULATION_WEATHER_HOURS:
+        raise RuntimeError(
+            f"Expected {SIMULATION_WEATHER_HOURS} cached weather rows, "
+            f"got {weather_count}"
+        )
 
     print(
-        f"profiles: {len(expected)} buildings x {INTERVALS_PER_DAY} "
+        f"profiles: {len(expected)} buildings x {SIMULATION_INTERVALS} "
         "15-minute rows verified"
     )
     print(f"weather: {weather_count} hourly rows cached in Tiger")
