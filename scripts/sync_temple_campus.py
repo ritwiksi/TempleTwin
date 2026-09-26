@@ -324,6 +324,17 @@ def distance_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
 
 def canonical_benchmark_name(value: str) -> str:
     n = normalized_name(value)
+    words = n.split()
+    replacements = {
+        "pkg": "parking",
+        "pking": "parking",
+        "gar": "garage",
+        "rec": "recreation",
+        "ctr": "center",
+    }
+    words = [replacements.get(word, word) for word in words]
+    n = " ".join(words)
+
     aliases = {
         "science education and research serc": "serc",
         "science education research serc": "serc",
@@ -333,6 +344,8 @@ def canonical_benchmark_name(value: str) -> str:
         "science education research center serc": "serc",
         "science education and research center": "serc",
         "science education research center": "serc",
+        "montgomery avenue parking garage": "montgomery parking garage",
+        "montgomery parking garage": "montgomery parking garage",
     }
     return aliases.get(n, n)
 
@@ -342,28 +355,20 @@ def strong_name_match(a: str, b: str) -> tuple[bool, float]:
     right = canonical_benchmark_name(b)
     if not left or not right:
         return False, 0.0
+
+    # Reported building energy is only accepted for an unambiguous facility
+    # identity match. Dense-campus proximity and generic shared words such as
+    # "Hall" or "Library" are not sufficient.
     if left == right:
         return True, 1.0
 
-    left_tokens = set(left.split())
-    right_tokens = set(right.split())
-    if not left_tokens or not right_tokens:
-        return False, 0.0
+    # Allow a very small set of semantically harmless suffix differences.
+    suffixes = (" residence", " residence tower", " apartments")
+    for suffix in suffixes:
+        if left.removesuffix(suffix) == right.removesuffix(suffix):
+            return True, 0.95
 
-    overlap = len(left_tokens & right_tokens) / max(len(left_tokens), len(right_tokens))
-    similarity = difflib.SequenceMatcher(None, left, right).ratio()
-
-    # Require substantial lexical agreement. Physical proximity alone is never
-    # sufficient because Temple has dense clusters of adjacent buildings.
-    containment = (
-        min(len(left_tokens), len(right_tokens)) >= 2
-        and (
-            left_tokens.issubset(right_tokens)
-            or right_tokens.issubset(left_tokens)
-        )
-    )
-    accepted = similarity >= 0.72 or overlap >= 0.67 or containment
-    return accepted, max(similarity, overlap)
+    return False, difflib.SequenceMatcher(None, left, right).ratio()
 
 
 def benchmark_match(
@@ -395,10 +400,10 @@ def benchmark_match(
         # A City benchmark record can represent a combined campus complex.
         # Do not assign one complex's total energy/area to a component building
         # unless the facility name itself strongly identifies the candidate.
-        if not name_ok and not (address_ok and name_score >= 0.55):
+        if not name_ok:
             continue
 
-        score = name_score + 0.2 * address_score + max(0.0, (100.0 - dist) / 500.0)
+        score = name_score + 0.05 * address_score + max(0.0, (100.0 - dist) / 500.0)
         if score > best[2]:
             best = (row, dist, score)
     return best
@@ -549,7 +554,13 @@ def main() -> None:
 
             electric_kbtu = positive_float(benchmark.get("electric_use_kbtu"))
             num_buildings = positive_float(benchmark.get("num_of_buildings"))
-            if electric_kbtu and (num_buildings in (None, 1.0)):
+            benchmark_label = str(benchmark.get("property_name") or "")
+            combined_name = bool(re.search(r"\\b(and|&)\\b", benchmark_label, re.I))
+            if (
+                electric_kbtu
+                and (num_buildings in (None, 1.0))
+                and not combined_name
+            ):
                 annual_kwh = electric_kbtu * 0.29307107
                 electricity_source = (
                     "City of Philadelphia 2024 Building Energy Benchmarking "
