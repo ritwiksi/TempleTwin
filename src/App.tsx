@@ -14,12 +14,15 @@ import {
   Math as CesiumMath,
   NearFarScalar,
   PolygonHierarchy,
+  ScreenSpaceEventHandler,
+  ScreenSpaceEventType,
   Viewer,
   VerticalOrigin,
 } from 'cesium'
 import { deriveEnergyIntensityThresholds, getEnergyIntensityColor } from './config/energy'
-import { fetchAllProfiles, fetchWeather } from './services/api'
-import type { BuildingProfileMap, BuildingSlug, WeatherHour } from './types/energy'
+import { BuildingDetailPanel } from './components/BuildingDetailPanel'
+import { fetchAllProfiles, fetchBuildings, fetchWeather } from './services/api'
+import type { BuildingMetadata, BuildingProfileMap, BuildingSlug, WeatherHour } from './types/energy'
 
 type Mode = 'reality' | 'energy'
 
@@ -83,7 +86,9 @@ function App() {
 
   const [mode, setMode] = useState<Mode>('reality')
   const [profiles, setProfiles] = useState<BuildingProfileMap | null>(null)
+  const [buildings, setBuildings] = useState<BuildingMetadata[]>([])
   const [weather, setWeather] = useState<WeatherHour[] | null>(null)
+  const [selectedSlug, setSelectedSlug] = useState<BuildingSlug | null>(null)
   const [currentIndex, setCurrentIndex] = useState(48)
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -92,11 +97,12 @@ function App() {
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([fetchAllProfiles(), fetchWeather()])
-      .then(([profileData, weatherData]) => {
+    Promise.all([fetchAllProfiles(), fetchWeather(), fetchBuildings()])
+      .then(([profileData, weatherData, buildingData]) => {
         if (!cancelled) {
           setProfiles(profileData)
           setWeather(weatherData)
+          setBuildings(buildingData)
           setDataError(null)
         }
       })
@@ -154,6 +160,7 @@ function App() {
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = false
 
     let disposed = false
+    let clickHandler: ScreenSpaceEventHandler | null = null
 
     const addPermanentLabels = () => {
       for (const building of BUILDINGS) {
@@ -186,6 +193,7 @@ function App() {
     const addEnergyHighlights = () => {
       for (const building of BUILDINGS) {
         const entity = viewer.entities.add({
+          id: `energy-${building.slug}`,
           name: building.name,
           show: false,
           polygon: {
@@ -216,6 +224,15 @@ function App() {
         addEnergyHighlights()
         addPermanentLabels()
 
+        clickHandler = new ScreenSpaceEventHandler(viewer.scene.canvas)
+        clickHandler.setInputAction((movement: { position: Cartesian2 }) => {
+          const picked = viewer.scene.pick(movement.position)
+          const entityId = picked?.id?.id
+          if (typeof entityId === 'string' && entityId.startsWith('energy-')) {
+            setSelectedSlug(entityId.replace('energy-', '') as BuildingSlug)
+          }
+        }, ScreenSpaceEventType.LEFT_CLICK)
+
         viewer.camera.flyTo({
           destination: Cartesian3.fromDegrees(-75.1597, 39.9764, 820),
           orientation: {
@@ -237,6 +254,7 @@ function App() {
     return () => {
       disposed = true
       energyEntitiesRef.current.clear()
+      if (clickHandler && !clickHandler.isDestroyed()) clickHandler.destroy()
       if (!viewer.isDestroyed()) viewer.destroy()
     }
   }, [])
@@ -249,7 +267,10 @@ function App() {
       entity.show = showEnergy
     }
 
-    if (mode === 'reality') setIsPlaying(false)
+    if (mode === 'reality') {
+      setIsPlaying(false)
+      setSelectedSlug(null)
+    }
   }, [mode])
 
   const thresholds = useMemo(() => {
@@ -286,6 +307,11 @@ function App() {
       state: profiles[building.slug][currentIndex],
     }))
   }, [profiles, currentIndex])
+
+  const selectedBuilding = useMemo(
+    () => buildings.find((building) => building.slug === selectedSlug) ?? null,
+    [buildings, selectedSlug],
+  )
 
 
   const currentClockHour = Math.floor(currentIndex / 4)
@@ -356,42 +382,53 @@ function App() {
 
       {mode === 'energy' && (
         <>
-          <aside className="energy-dock" aria-label="Current building metrics">
-            <div className="dock-head">
-              <div>
-                <div className="dock-kicker">ENERGY MODE</div>
-                <div className="dock-title">Campus load</div>
-              </div>
-              <div className="dock-time">{timeLabel}</div>
-            </div>
-
-            {dataError ? (
-              <div className="data-error">{dataError}</div>
-            ) : !currentStates ? (
-              <div className="loading-copy">Loading Tiger-backed profiles…</div>
+          <aside className={`energy-dock ${selectedBuilding ? 'detail-open' : ''}`} aria-label="Building energy panel">
+            {selectedBuilding && profiles ? (
+              <BuildingDetailPanel
+                building={selectedBuilding}
+                profile={profiles[selectedBuilding.slug]}
+                currentIndex={currentIndex}
+                onClose={() => setSelectedSlug(null)}
+              />
             ) : (
-              <div className="building-list">
-                {currentStates.map(({ slug, name, state }) => (
-                  <div className="building-row" key={slug}>
-                    <div className="building-row-main">
-                      <span
-                        className="building-status"
-                        style={{ background: getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds) }}
-                      />
-                      <div>
-                        <div className="metric-name">{name}</div>
-                        <div className="metric-intensity">
-                          {state.energy_intensity_w_ft2.toFixed(2)} W/ft²
-                        </div>
-                      </div>
-                    </div>
-                    <div className="metric-demand">
-                      {state.demand_kw.toFixed(0)}
-                      <span> kW</span>
-                    </div>
+              <>
+                <div className="dock-head">
+                  <div>
+                    <div className="dock-kicker">ENERGY MODE</div>
+                    <div className="dock-title">Campus load</div>
                   </div>
-                ))}
-              </div>
+                  <div className="dock-time">{timeLabel}</div>
+                </div>
+
+                {dataError ? (
+                  <div className="data-error">{dataError}</div>
+                ) : !currentStates ? (
+                  <div className="loading-copy">Loading Tiger-backed profiles…</div>
+                ) : (
+                  <div className="building-list">
+                    {currentStates.map(({ slug, name, state }) => (
+                      <button className="building-row" type="button" key={slug} onClick={() => setSelectedSlug(slug)}>
+                        <div className="building-row-main">
+                          <span
+                            className="building-status"
+                            style={{ background: getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds) }}
+                          />
+                          <div>
+                            <div className="metric-name">{name}</div>
+                            <div className="metric-intensity">
+                              {state.energy_intensity_w_ft2.toFixed(2)} W/ft²
+                            </div>
+                          </div>
+                        </div>
+                        <div className="metric-demand">
+                          {state.demand_kw.toFixed(0)}
+                          <span> kW</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </aside>
 
