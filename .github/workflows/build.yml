@@ -37,3 +37,8 @@ jobs:
         run: docker build -f Dockerfile.backend -t temple-twin-backend:test .
       - name: Build frontend image
         run: docker build -f Dockerfile.frontend --build-arg VITE_CESIUM_ION_TOKEN=dummy-token --build-arg VITE_API_BASE_URL= -t temple-twin-frontend:test .
+      - name: Validate Docker Compose
+        env:
+          VITE_CESIUM_ION_TOKEN: dummy-token
+          DATABASE_URL: postgresql://user:pass@example.com:5432/db?sslmode=require
+        run: docker compose config
