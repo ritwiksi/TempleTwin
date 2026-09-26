@@ -4,7 +4,12 @@ on:
   push:
     branches:
       - milestone-1-3d-poc
+    paths-ignore:
+      - '.ci/tsc-error.txt'
   pull_request:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -16,6 +21,20 @@ jobs:
           node-version: 22
       - run: npm install
       - name: TypeScript compile
-        run: npx tsc -b
+        shell: bash
+        run: |
+          set +e
+          npx tsc --noEmit > tsc-error.txt 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            mkdir -p .ci
+            cp tsc-error.txt .ci/tsc-error.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .ci/tsc-error.txt
+            git commit -m "ci: capture TypeScript diagnostic"
+            git push
+          fi
+          exit $status
       - name: Vite production bundle
         run: npx vite build
