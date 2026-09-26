@@ -14,7 +14,7 @@ import {
 } from 'cesium'
 
 const BUILDINGS = [
-  { name: 'SERC', longitude: -75.15304, latitude: 39.98231, height: 43 },
+  { name: 'SERC', longitude: -75.15304, latitude: 39.98198, height: 43 },
   { name: 'Beury Hall', longitude: -75.15449, latitude: 39.98210, height: 34 },
   { name: 'Engineering Building', longitude: -75.15283, latitude: 39.98257, height: 28 },
 ]
