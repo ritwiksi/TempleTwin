@@ -1,4 +1,4 @@
-export type BuildingSlug = 'serc' | 'beury' | 'engineering'
+export type BuildingSlug = string
 
 export type EnergyState = {
   timestamp: string
@@ -16,7 +16,6 @@ export type EnergyState = {
 
 export type BuildingProfileMap = Record<BuildingSlug, EnergyState[]>
 
-
 export type WeatherHour = {
   timestamp: string
   temperature_f: number
@@ -28,22 +27,28 @@ export type WeatherHour = {
   source: string
 }
 
-
 export type BuildingMetadata = {
   id: number
   slug: BuildingSlug
   name: string
   floor_area_ft2: number
+  roof_area_ft2: number
   latitude: number
   longitude: number
   approx_height_m: number
   building_type: string
+  archetype: string
+  comstock_type: string
   area_source: string
   area_is_estimated: boolean
+  data_confidence: string
+  geometry_source: string
+  annual_electricity_kwh: number | null
+  electricity_source: string
   modeled_annual_eui_kwh_ft2: number
   model_notes: string
+  footprint: number[]
 }
-
 
 export type InterventionFlags = {
   led: boolean
