@@ -58,7 +58,11 @@ def get_building(slug: str) -> dict | None:
         return _enrich_building(dict(row)) if row else None
 
 
-def get_profile(slug: str, scenario: str = "baseline") -> list[dict]:
+def get_profile(
+    slug: str,
+    scenario: str = "baseline",
+    date: str | None = None,
+) -> list[dict]:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -69,14 +73,18 @@ def get_profile(slug: str, scenario: str = "baseline") -> list[dict]:
             FROM building_hourly_state s
             JOIN buildings b ON b.id = s.building_id
             WHERE b.slug = %s AND s.scenario_id = %s
+              AND (%s IS NULL OR s.timestamp::date = %s::date)
             ORDER BY s.timestamp
             """,
-            (slug, scenario),
+            (slug, scenario, date, date),
         )
         return list(cur.fetchall())
 
 
-def get_all_profiles(scenario: str = "baseline") -> list[dict]:
+def get_all_profiles(
+    scenario: str = "baseline",
+    date: str | None = None,
+) -> list[dict]:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -88,14 +96,20 @@ def get_all_profiles(scenario: str = "baseline") -> list[dict]:
             FROM building_hourly_state s
             JOIN buildings b ON b.id = s.building_id
             WHERE s.scenario_id = %s
+              AND (%s IS NULL OR s.timestamp::date = %s::date)
             ORDER BY b.slug, s.timestamp
             """,
-            (scenario,),
+            (scenario, date, date),
         )
         return list(cur.fetchall())
 
 
-def get_state(slug: str, hour: int, scenario: str = "baseline") -> dict | None:
+def get_state(
+    slug: str,
+    hour: int,
+    scenario: str = "baseline",
+    date: str | None = None,
+) -> dict | None:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -108,22 +122,25 @@ def get_state(slug: str, hour: int, scenario: str = "baseline") -> dict | None:
             WHERE b.slug = %s
               AND s.scenario_id = %s
               AND EXTRACT(HOUR FROM s.timestamp)::int = %s
+              AND (%s IS NULL OR s.timestamp::date = %s::date)
             ORDER BY s.timestamp
             LIMIT 1
             """,
-            (slug, scenario, hour),
+            (slug, scenario, hour, date, date),
         )
         return cur.fetchone()
 
 
-def get_weather() -> list[dict]:
+def get_weather(date: str | None = None) -> list[dict]:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
             """
             SELECT timestamp, temperature_f, relative_humidity_pct,
                    cloud_cover_pct, ghi_w_m2, dni_w_m2, weather_code, source
             FROM weather_hourly
+            WHERE (%s IS NULL OR timestamp::date = %s::date)
             ORDER BY timestamp
-            """
+            """,
+            (date, date),
         )
         return list(cur.fetchall())
