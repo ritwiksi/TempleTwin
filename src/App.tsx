@@ -95,8 +95,9 @@ function App() {
           duration: 3.4,
         })
       } catch (err) {
-        console.error(err)
-        setError('Reality Mode could not load. Check the Cesium ion token and Google Photorealistic 3D Tiles access.')
+        console.error('Temple Twin Cesium initialization failed:', err)
+        const detail = err instanceof Error ? err.message : String(err)
+        setError(`Reality Mode failed: ${detail}`)
       }
     }
 
