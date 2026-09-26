@@ -71,3 +71,16 @@ def get_state(slug: str, hour: int, scenario: str = "baseline") -> dict | None:
             (slug, scenario, hour),
         )
         return cur.fetchone()
+
+
+def get_weather() -> list[dict]:
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT timestamp, temperature_f, relative_humidity_pct,
+                   cloud_cover_pct, ghi_w_m2, dni_w_m2, weather_code, source
+            FROM weather_hourly
+            ORDER BY timestamp
+            """
+        )
+        return list(cur.fetchall())
