@@ -33,5 +33,6 @@ jobs:
             echo "Campus dataset already current."
           else
             git commit -m "data: sync 50 Temple Main Campus buildings"
-            git push
+            git pull --rebase origin main
+            git push origin main
           fi
