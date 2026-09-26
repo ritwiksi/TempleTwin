@@ -1,9 +1,11 @@
-"""Temple Twin profile model using actual 15-minute NREL ComStock data.
+"""Temple Twin 15-minute energy profile model.
 
-Temporal/end-use behavior is taken directly from official Philadelphia County
-ComStock aggregate files. Absolute Temple magnitude is calibrated uniformly to
-Temple's published campus-wide electricity EUI; no hand-picked per-building EUI
-multipliers are used.
+Each building uses:
+- authoritative Temple GIS gross floor area and polygon geometry;
+- City of Philadelphia reported annual electricity when an unambiguous
+  building-level match exists;
+- otherwise Temple's FY2025 campus electricity EUI as the annual calibration;
+- NREL ComStock Philadelphia County end-use/load shape for the intraday profile.
 """
 
 from __future__ import annotations
@@ -18,7 +20,6 @@ import urllib.request
 from app.buildings import Building, get_building, load_buildings
 from app.config.model_parameters import (
     CAMPUS_ELECTRIC_EUI_KWH_FT2,
-    COMSTOCK_BUILDING_TYPE,
     COMSTOCK_COUNTY_GISJOIN,
     COMSTOCK_FRIDAY_DATE,
     COMSTOCK_SOURCE_ROOT,
@@ -64,6 +65,8 @@ class IntervalState:
 
 
 def annual_target_kwh(building: Building) -> float:
+    if building.annual_electricity_kwh is not None:
+        return building.annual_electricity_kwh
     return CAMPUS_ELECTRIC_EUI_KWH_FT2 * building.floor_area_ft2
 
 
@@ -93,13 +96,10 @@ def _download_comstock_rows(building_type: str) -> tuple[dict[str, str], ...]:
 
 
 @lru_cache(maxsize=None)
-def _comstock_annual_profile(slug: str) -> tuple[IntervalState, ...]:
-    building_type = COMSTOCK_BUILDING_TYPE[slug]
+def _comstock_annual_profile(building_type: str) -> tuple[IntervalState, ...]:
     states: list[IntervalState] = []
-
     for row in _download_comstock_rows(building_type):
         endpoint = datetime.fromisoformat(row["timestamp"].replace("Z", "+00:00"))
-        # ComStock timestamp marks the end of each 15-minute energy interval.
         start = endpoint - timedelta(minutes=INTERVAL_MINUTES)
 
         hvac_kwh = sum(_number(row, col) for col in HVAC_COLUMNS)
@@ -108,7 +108,6 @@ def _comstock_annual_profile(slug: str) -> tuple[IntervalState, ...]:
         total_kwh = _number(row, TOTAL_COLUMN)
         other_kwh = max(total_kwh - hvac_kwh - lighting_kwh - process_kwh, 0.0)
 
-        # Convert interval energy to average kW over the 15-minute interval.
         kwh_to_kw = 60.0 / INTERVAL_MINUTES
         values = {
             "hvac_kw": hvac_kwh * kwh_to_kw,
@@ -116,28 +115,22 @@ def _comstock_annual_profile(slug: str) -> tuple[IntervalState, ...]:
             "process_kw": process_kwh * kwh_to_kw,
             "other_kw": other_kwh * kwh_to_kw,
         }
-        demand_kw = sum(values.values())
-        interval_index = start.hour * 4 + start.minute // INTERVAL_MINUTES
 
         states.append(
             IntervalState(
                 timestamp=start.isoformat(),
                 hour=start.hour,
                 minute=start.minute,
-                interval_index=interval_index,
-                hvac_kw=values["hvac_kw"],
-                lighting_kw=values["lighting_kw"],
-                process_kw=values["process_kw"],
-                other_kw=values["other_kw"],
-                demand_kw=demand_kw,
+                interval_index=start.hour * 4 + start.minute // INTERVAL_MINUTES,
+                demand_kw=sum(values.values()),
+                **values,
             )
         )
-
     return tuple(states)
 
 
 def generate_annual_profile(building: Building) -> list[IntervalState]:
-    raw = list(_comstock_annual_profile(building.slug))
+    raw = list(_comstock_annual_profile(building.comstock_type))
     if not raw:
         raise RuntimeError(f"No ComStock annual profile for {building.slug}")
 
@@ -147,23 +140,17 @@ def generate_annual_profile(building: Building) -> list[IntervalState]:
         raise RuntimeError(f"ComStock profile total is zero for {building.slug}")
 
     scale = annual_target_kwh(building) / raw_annual_kwh
-    scaled: list[IntervalState] = []
+    scaled = []
     for row in raw:
-        values = {
-            component: getattr(row, component) * scale
-            for component in COMPONENTS
-        }
+        values = {c: getattr(row, c) * scale for c in COMPONENTS}
         scaled.append(
             IntervalState(
                 timestamp=row.timestamp,
                 hour=row.hour,
                 minute=row.minute,
                 interval_index=row.interval_index,
-                hvac_kw=values["hvac_kw"],
-                lighting_kw=values["lighting_kw"],
-                process_kw=values["process_kw"],
-                other_kw=values["other_kw"],
                 demand_kw=sum(values.values()),
+                **values,
             )
         )
     return scaled
@@ -173,8 +160,7 @@ def generate_friday_profile(slug: str) -> list[IntervalState]:
     building = get_building(slug)
     annual = generate_annual_profile(building)
     rows = [
-        row
-        for row in annual
+        row for row in annual
         if datetime.fromisoformat(row.timestamp).date().isoformat()
         == COMSTOCK_FRIDAY_DATE
     ]
@@ -189,17 +175,15 @@ def generate_friday_profile(slug: str) -> list[IntervalState]:
 
 
 def generate_all_friday_profiles() -> dict[str, list[IntervalState]]:
-    return {
-        building.slug: generate_friday_profile(building.slug)
-        for building in load_buildings()
-    }
+    return {b.slug: generate_friday_profile(b.slug) for b in load_buildings()}
 
 
 def modeled_building_metadata() -> list[dict]:
     result = []
     for building in load_buildings():
         row = asdict(building)
-        row["modeled_annual_electric_eui_kwh_ft2"] = CAMPUS_ELECTRIC_EUI_KWH_FT2
-        row["modeled_annual_electricity_kwh"] = annual_target_kwh(building)
+        annual_kwh = annual_target_kwh(building)
+        row["modeled_annual_electric_eui_kwh_ft2"] = annual_kwh / building.floor_area_ft2
+        row["modeled_annual_electricity_kwh"] = annual_kwh
         result.append(row)
     return result
