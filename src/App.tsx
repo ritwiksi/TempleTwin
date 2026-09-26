@@ -738,9 +738,9 @@ function App() {
             </button>
             <div className="timeline-main">
               <div className="timeline-header">
-                <span>00:00</span>
+                <span>{startDateLabel}</span>
                 <strong>{dateLabel} · {timeLabel}</strong>
-                <span>23:45</span>
+                <span>{endDateLabel}</span>
               </div>
               <input
                 type="range"
