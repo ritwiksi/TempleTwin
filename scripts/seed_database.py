@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create the Tiger schema and seed Temple Twin's Milestone 3 modeled profiles."""
+"""Create/update Tiger schema and seed 15-minute Friday profiles."""
 
 from __future__ import annotations
 
@@ -11,18 +11,16 @@ BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.buildings import load_buildings
-from app.config.model_parameters import MODELED_EUI_KWH_FT2
+from app.config.model_parameters import CAMPUS_ELECTRIC_EUI_KWH_FT2, INTERVALS_PER_DAY
 from app.database import get_connection
 from app.services.profile_model import generate_friday_profile
-
 
 SCHEMA = BACKEND / "app" / "schema.sql"
 
 
 def initialize_schema(conn) -> None:
-    sql = SCHEMA.read_text(encoding="utf-8")
     with conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute(SCHEMA.read_text(encoding="utf-8"))
     conn.commit()
 
 
@@ -61,7 +59,7 @@ def upsert_buildings(conn) -> dict[str, int]:
                     building.building_type,
                     building.area_source,
                     building.area_is_estimated,
-                    MODELED_EUI_KWH_FT2[building.slug],
+                    CAMPUS_ELECTRIC_EUI_KWH_FT2,
                     building.model_notes,
                 ),
             )
@@ -129,11 +127,11 @@ def verify(conn) -> None:
         rows = cur.fetchall()
     expected = {"serc", "beury", "engineering"}
     found = {row["slug"] for row in rows}
-    if found != expected or any(row["row_count"] != 24 for row in rows):
+    if found != expected or any(row["row_count"] != INTERVALS_PER_DAY for row in rows):
         raise RuntimeError(f"Tiger seed verification failed: {rows}")
     for row in rows:
         print(
-            f"{row['slug']}: {row['row_count']} rows "
+            f"{row['slug']}: {row['row_count']} 15-minute rows "
             f"({row['first_ts']} -> {row['last_ts']})"
         )
 
