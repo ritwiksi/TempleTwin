@@ -119,6 +119,7 @@ NAME_KEYS = (
 )
 AREA_KEYS = (
     "gross_floor_area", "grossfloorarea", "gross_sq_ft", "grosssqft",
+    "gross_sq_f", "grosssqf",
     "gross_square_feet", "grosssquarefeet", "gross_area_ft2", "grossareaft2",
     "gross_area", "grossarea", "building_gsf", "buildinggsf", "bldg_gsf",
     "bldggsf", "total_gsf", "totalgsf", "gsf", "floor_area_ft2",
@@ -245,7 +246,14 @@ def in_main_campus(lon: float, lat: float) -> bool:
 
 def is_excluded(name: str) -> bool:
     n = name.lower()
-    return any(part in n for part in EXCLUDE_NAME_PARTS)
+    if any(part in n for part in EXCLUDE_NAME_PARTS):
+        return True
+    compact = re.sub(r"[^A-Za-z0-9]", "", name)
+    # Older GIS layers contain building-code-only features (e.g. 007, 084S).
+    # Those are not useful display identities and duplicate named facilities.
+    if re.fullmatch(r"\d+[A-Za-z]?", compact):
+        return True
+    return False
 
 
 def fetch_service_features(service: str) -> list[dict[str, Any]]:
@@ -314,27 +322,84 @@ def distance_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     return math.hypot(dx, dy)
 
 
+def canonical_benchmark_name(value: str) -> str:
+    n = normalized_name(value)
+    aliases = {
+        "science education and research serc": "serc",
+        "science education research serc": "serc",
+        "science education and research": "serc",
+        "science education research": "serc",
+        "science education and research center serc": "serc",
+        "science education research center serc": "serc",
+        "science education and research center": "serc",
+        "science education research center": "serc",
+    }
+    return aliases.get(n, n)
+
+
+def strong_name_match(a: str, b: str) -> tuple[bool, float]:
+    left = canonical_benchmark_name(a)
+    right = canonical_benchmark_name(b)
+    if not left or not right:
+        return False, 0.0
+    if left == right:
+        return True, 1.0
+
+    left_tokens = set(left.split())
+    right_tokens = set(right.split())
+    if not left_tokens or not right_tokens:
+        return False, 0.0
+
+    overlap = len(left_tokens & right_tokens) / max(len(left_tokens), len(right_tokens))
+    similarity = difflib.SequenceMatcher(None, left, right).ratio()
+
+    # Require substantial lexical agreement. Physical proximity alone is never
+    # sufficient because Temple has dense clusters of adjacent buildings.
+    containment = (
+        min(len(left_tokens), len(right_tokens)) >= 2
+        and (
+            left_tokens.issubset(right_tokens)
+            or right_tokens.issubset(left_tokens)
+        )
+    )
+    accepted = similarity >= 0.72 or overlap >= 0.67 or containment
+    return accepted, max(similarity, overlap)
+
+
 def benchmark_match(
-    name: str, lon: float, lat: float, rows: list[dict[str, Any]]
+    name: str, address: str, lon: float, lat: float, rows: list[dict[str, Any]]
 ) -> tuple[dict[str, Any] | None, float | None, float]:
-    target = normalized_name(name)
     best: tuple[dict[str, Any] | None, float | None, float] = (None, None, 0.0)
+    normalized_address = normalized_name(address)
+
     for row in rows:
         row_lon = float_value(row.get("x_lon"))
         row_lat = float_value(row.get("y_lat"))
         if row_lon is None or row_lat is None:
             continue
         dist = distance_m(lon, lat, row_lon, row_lat)
-        if dist > 140:
+        if dist > 180:
             continue
 
-        prop = normalized_name(str(row.get("property_name") or ""))
-        similarity = difflib.SequenceMatcher(None, target, prop).ratio() if prop else 0.0
+        prop_raw = str(row.get("property_name") or "")
+        name_ok, name_score = strong_name_match(name, prop_raw)
 
-        # Nearby + recognizable name is strongest. Extremely close points can
-        # match even when the benchmark record uses a campus/property alias.
-        score = similarity + max(0.0, (80.0 - dist) / 200.0)
-        if (similarity >= 0.34 or dist <= 28.0) and score > best[2]:
+        bench_address = normalized_name(str(row.get("street_address") or ""))
+        address_score = (
+            difflib.SequenceMatcher(None, normalized_address, bench_address).ratio()
+            if normalized_address and bench_address
+            else 0.0
+        )
+        address_ok = address_score >= 0.86
+
+        # A City benchmark record can represent a combined campus complex.
+        # Do not assign one complex's total energy/area to a component building
+        # unless the facility name itself strongly identifies the candidate.
+        if not name_ok and not (address_ok and name_score >= 0.55):
+            continue
+
+        score = name_score + 0.2 * address_score + max(0.0, (100.0 - dist) / 500.0)
+        if score > best[2]:
             best = (row, dist, score)
     return best
 
@@ -458,8 +523,15 @@ def main() -> None:
             if height_raw:
                 height_m = height_raw
 
+        address = ""
+        for feature in features:
+            raw_address = first_value(feature.get("properties", {}), ("Address", "PROPERTY_ASSET_ADDRESS"))
+            if raw_address:
+                address = str(raw_address)
+                break
+
         benchmark, bench_dist, bench_score = benchmark_match(
-            name, lon, lat, benchmark_rows
+            name, address, lon, lat, benchmark_rows
         )
         annual_kwh = None
         electricity_source = "Temple campus FY2025 calibrated EUI"
@@ -521,7 +593,16 @@ def main() -> None:
     # Deduplicate slugs safely.
     by_slug: dict[str, Candidate] = {}
     for candidate in sorted(candidates, key=lambda c: c.gross_area_ft2, reverse=True):
-        base = slugify(candidate.name)
+        normalized_candidate = canonical_benchmark_name(candidate.name)
+        lower_name = candidate.name.lower()
+        if normalized_candidate == "serc":
+            base = "serc"
+        elif "beury" in lower_name:
+            base = "beury"
+        elif "engineering" in lower_name and "garage" not in lower_name:
+            base = "engineering"
+        else:
+            base = slugify(candidate.name)
         slug = base
         n = 2
         while slug in by_slug:
@@ -623,11 +704,18 @@ def main() -> None:
     actual_electric = sum(
         1 for _, candidate in selected_pairs if candidate.annual_electricity_kwh
     )
+    temple_area_count = sum(
+        1 for _, candidate in selected_pairs
+        if candidate.area_source.startswith("Temple University ArcGIS")
+    )
+    benchmark_area_count = len(selected_pairs) - temple_area_count
     report = {
         "status": "ok",
         "building_count": len(selected_pairs),
         "reported_electricity_count": actual_electric,
         "campus_eui_modeled_count": len(selected_pairs) - actual_electric,
+        "temple_gis_area_count": temple_area_count,
+        "benchmark_area_count": benchmark_area_count,
         "service_diagnostics": service_diagnostics,
         "service_field_samples": service_field_samples,
         "benchmark_row_count": len(benchmark_rows),
