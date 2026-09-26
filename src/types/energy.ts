@@ -55,3 +55,11 @@ export type InterventionFlags = {
   hvac: boolean
   solar: boolean
 }
+
+export type SimulationConfig = {
+  start_date: string
+  end_date: string
+  interval_minutes: number
+  intervals_per_day: number
+  total_intervals: number
+}
