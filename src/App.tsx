@@ -3,15 +3,16 @@ import {
   Cartesian2,
   Cartesian3,
   Cesium3DTileset,
-  Cesium3DTileStyle,
+  ClassificationType,
   Color,
   createGooglePhotorealistic3DTileset,
-  createOsmBuildingsAsync,
+  Entity,
   Ion,
   IonGeocodeProviderType,
   LabelStyle,
   Math as CesiumMath,
   NearFarScalar,
+  PolygonHierarchy,
   Viewer,
   VerticalOrigin,
 } from 'cesium'
@@ -23,7 +24,9 @@ type FocusBuilding = {
   longitude: number
   latitude: number
   height: number
+  footprint: number[]
   testIntensityWPerFt2: number
+  testColor: string
 }
 
 const BUILDINGS: FocusBuilding[] = [
@@ -32,28 +35,49 @@ const BUILDINGS: FocusBuilding[] = [
     longitude: -75.15304,
     latitude: 39.98198,
     height: 43,
+    footprint: [
+      -75.15334, 39.98172,
+      -75.15276, 39.98172,
+      -75.15276, 39.98223,
+      -75.15334, 39.98223,
+    ],
     testIntensityWPerFt2: 8.1,
+    testColor: '#ef4444',
   },
   {
     name: 'Beury Hall',
     longitude: -75.15449,
     latitude: 39.98210,
     height: 34,
+    footprint: [
+      -75.15478, 39.98190,
+      -75.15420, 39.98190,
+      -75.15420, 39.98231,
+      -75.15478, 39.98231,
+    ],
     testIntensityWPerFt2: 5.6,
+    testColor: '#f59e0b',
   },
   {
     name: 'Engineering Building',
     longitude: -75.15283,
     latitude: 39.98257,
     height: 28,
+    footprint: [
+      -75.15308, 39.98239,
+      -75.15257, 39.98239,
+      -75.15257, 39.98276,
+      -75.15308, 39.98276,
+    ],
     testIntensityWPerFt2: 2.4,
+    testColor: '#22c55e',
   },
 ]
 
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const realityTilesRef = useRef<Cesium3DTileset | null>(null)
-  const energyTilesRef = useRef<Cesium3DTileset | null>(null)
+  const energyEntitiesRef = useRef<Entity[]>([])
   const [mode, setMode] = useState<Mode>('reality')
   const [error, setError] = useState<string | null>(null)
 
@@ -113,6 +137,26 @@ function App() {
       }
     }
 
+    const addEnergyHighlights = () => {
+      for (const building of BUILDINGS) {
+        const tint = Color.fromCssColorString(building.testColor).withAlpha(0.5)
+
+        const entity = viewer.entities.add({
+          name: `${building.name} — temporary Milestone 2 test intensity ${building.testIntensityWPerFt2} W/ft²`,
+          show: false,
+          polygon: {
+            hierarchy: new PolygonHierarchy(
+              Cartesian3.fromDegreesArray(building.footprint),
+            ),
+            material: tint,
+            classificationType: ClassificationType.CESIUM_3D_TILE,
+          },
+        })
+
+        energyEntitiesRef.current.push(entity)
+      }
+    }
+
     const initialize = async () => {
       try {
         const realityTiles = await createGooglePhotorealistic3DTileset({
@@ -123,35 +167,7 @@ function App() {
         realityTilesRef.current = realityTiles
         viewer.scene.primitives.add(realityTiles)
 
-        const energyTiles = await createOsmBuildingsAsync({
-          style: new Cesium3DTileStyle({
-            color: {
-              conditions: [
-                [
-                  "${name} === 'Science Education and Research Center' || ${name} === 'Science Education Research Center' || ${name} === 'SERC'",
-                  "color('#ef4444', 0.92)",
-                ],
-                [
-                  "${name} === 'Beury Hall' || ${name} === 'Charles E. Beury Hall'",
-                  "color('#f59e0b', 0.90)",
-                ],
-                [
-                  "${name} === 'Engineering Building' || ${name} === 'Temple University Engineering Building' || ${name} === 'College of Engineering'",
-                  "color('#22c55e', 0.90)",
-                ],
-                ["true", "color('#7f8a96', 0.62)"],
-              ],
-            },
-          }),
-          showOutline: false,
-        })
-
-        if (disposed) return
-        energyTiles.show = false
-        energyTiles.maximumScreenSpaceError = 8
-        energyTilesRef.current = energyTiles
-        viewer.scene.primitives.add(energyTiles)
-
+        addEnergyHighlights()
         addPermanentLabels()
 
         viewer.camera.flyTo({
@@ -179,19 +195,13 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const isEnergy = mode === 'energy'
+    // Keep the photorealistic campus visible in both modes so switching feels
+    // like an analytical overlay rather than loading a different city model.
+    if (realityTilesRef.current) realityTilesRef.current.show = true
 
-    if (realityTilesRef.current) {
-      realityTilesRef.current.show = true
-      realityTilesRef.current.style = isEnergy
-        ? new Cesium3DTileStyle({
-            color: "color('#aeb4ba', 0.72)",
-          })
-        : undefined
-    }
-
-    if (energyTilesRef.current) {
-      energyTilesRef.current.show = isEnergy
+    const showEnergy = mode === 'energy'
+    for (const entity of energyEntitiesRef.current) {
+      entity.show = showEnergy
     }
 
     setError(null)
