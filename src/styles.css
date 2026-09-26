@@ -279,3 +279,20 @@ button, input { font: inherit; }
   .energy-legend { display: none; }
   .timeline { width: calc(100% - 28px); bottom: 14px; }
 }
+
+
+.metrics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.weather-chip {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.74);
+  font-size: 9px;
+  white-space: nowrap;
+}
