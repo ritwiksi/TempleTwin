@@ -1,6 +1,8 @@
 import type { BuildingMetadata, BuildingProfileMap, BuildingSlug, EnergyState, InterventionFlags, WeatherHour } from '../types/energy'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')
 
 async function fetchProfile(slug: BuildingSlug): Promise<EnergyState[]> {
   const response = await fetch(`${API_BASE_URL}/api/buildings/${slug}/profile`)
