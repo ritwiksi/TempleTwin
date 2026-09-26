@@ -3,6 +3,7 @@ name: Build
 on:
   push:
     branches:
+      - main
       - milestone-1-3d-poc
   pull_request:
 
