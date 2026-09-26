@@ -83,7 +83,8 @@ class InterventionRequest(BaseModel):
 
 @app.post("/api/buildings/{slug}/simulate")
 def simulate(slug: str, request: InterventionRequest):
-    if repository.get_building(slug) is None:
+    building_row = repository.get_building(slug)
+    if building_row is None:
         raise HTTPException(status_code=404, detail="Building not found")
 
     profile_rows = repository.get_profile(slug, "baseline")
@@ -98,6 +99,7 @@ def simulate(slug: str, request: InterventionRequest):
         slug,
         profile_rows,
         weather_rows,
+        floor_area_ft2=float(building_row["floor_area_ft2"]),
         led=request.led,
         hvac=request.hvac,
         solar=request.solar,
