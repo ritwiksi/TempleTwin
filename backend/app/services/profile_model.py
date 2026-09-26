@@ -5,12 +5,12 @@ Each building uses:
 - City of Philadelphia reported annual electricity when an unambiguous
   building-level match exists;
 - otherwise Temple's FY2025 campus electricity EUI as the annual calibration;
-- NREL ComStock Philadelphia County end-use/load shape for the intraday profile.
+- NREL ComStock Philadelphia County end-use/load shape for the full annual profile.
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta
 from functools import lru_cache
 import csv
@@ -21,10 +21,11 @@ from app.buildings import Building, get_building, load_buildings
 from app.config.model_parameters import (
     CAMPUS_ELECTRIC_EUI_KWH_FT2,
     COMSTOCK_COUNTY_GISJOIN,
-    COMSTOCK_FRIDAY_DATE,
     COMSTOCK_SOURCE_ROOT,
     INTERVAL_MINUTES,
-    INTERVALS_PER_DAY,
+    SIMULATION_END_DATE,
+    SIMULATION_INTERVALS,
+    SIMULATION_START_DATE,
 )
 
 COMPONENTS = ("hvac_kw", "lighting_kw", "process_kw", "other_kw")
@@ -156,27 +157,36 @@ def generate_annual_profile(building: Building) -> list[IntervalState]:
     return scaled
 
 
-def generate_friday_profile(slug: str) -> list[IntervalState]:
+def generate_simulation_profile(slug: str) -> list[IntervalState]:
+    """Return the continuous 15-minute profile for the configured simulation window."""
     building = get_building(slug)
     annual = generate_annual_profile(building)
-    rows = [
-        row for row in annual
-        if datetime.fromisoformat(row.timestamp).date().isoformat()
-        == COMSTOCK_FRIDAY_DATE
+    selected = [
+        row
+        for row in annual
+        if SIMULATION_START_DATE
+        <= datetime.fromisoformat(row.timestamp).date().isoformat()
+        <= SIMULATION_END_DATE
     ]
-    by_index = {row.interval_index: row for row in rows}
-    ordered = [by_index[i] for i in range(INTERVALS_PER_DAY) if i in by_index]
-    if len(ordered) != INTERVALS_PER_DAY:
+    selected.sort(key=lambda row: datetime.fromisoformat(row.timestamp))
+
+    if len(selected) != SIMULATION_INTERVALS:
         raise RuntimeError(
-            f"Expected {INTERVALS_PER_DAY} ComStock Friday rows for {slug}, "
-            f"got {len(ordered)}"
+            f"Expected {SIMULATION_INTERVALS} ComStock simulation rows for {slug}, "
+            f"got {len(selected)}"
         )
-    return ordered
+
+    return [
+        replace(row, interval_index=index)
+        for index, row in enumerate(selected)
+    ]
 
 
-def generate_all_friday_profiles() -> dict[str, list[IntervalState]]:
-    return {b.slug: generate_friday_profile(b.slug) for b in load_buildings()}
-
+def generate_all_simulation_profiles() -> dict[str, list[IntervalState]]:
+    return {
+        building.slug: generate_simulation_profile(building.slug)
+        for building in load_buildings()
+    }
 
 def modeled_building_metadata() -> list[dict]:
     result = []
