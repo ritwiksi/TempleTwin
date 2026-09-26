@@ -5,6 +5,7 @@ import {
   Color,
   createGooglePhotorealistic3DTileset,
   Ion,
+  IonGeocodeProviderType,
   LabelStyle,
   Math as CesiumMath,
   NearFarScalar,
@@ -37,7 +38,8 @@ function App() {
       animation: false,
       baseLayerPicker: false,
       fullscreenButton: false,
-      geocoder: false,
+      geocoder: IonGeocodeProviderType.GOOGLE,
+      globe: false,
       homeButton: false,
       infoBox: false,
       sceneModePicker: false,
@@ -47,7 +49,6 @@ function App() {
       shouldAnimate: true,
     })
 
-    viewer.scene.globe.show = false
     if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = true
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = false
 
@@ -55,7 +56,9 @@ function App() {
 
     const initialize = async () => {
       try {
-        const tileset = await createGooglePhotorealistic3DTileset()
+        const tileset = await createGooglePhotorealistic3DTileset({
+          onlyUsingWithGoogleGeocoder: true,
+        })
         if (disposed) return
         viewer.scene.primitives.add(tileset)
 
