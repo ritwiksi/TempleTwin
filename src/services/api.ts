@@ -4,6 +4,7 @@ import type {
   BuildingSlug,
   EnergyState,
   InterventionFlags,
+  SimulationConfig,
   WeatherHour,
 } from '../types/energy'
 
@@ -11,8 +12,16 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')
 
-export async function fetchAllProfiles(): Promise<BuildingProfileMap> {
-  const response = await fetch(`${API_BASE_URL}/api/profiles`)
+export async function fetchSimulationConfig(): Promise<SimulationConfig> {
+  const response = await fetch(`${API_BASE_URL}/api/simulation`)
+  if (!response.ok) {
+    throw new Error(`Simulation request failed: ${response.status}`)
+  }
+  return (await response.json()) as SimulationConfig
+}
+
+export async function fetchAllProfiles(date: string): Promise<BuildingProfileMap> {
+  const response = await fetch(`${API_BASE_URL}/api/profiles?date=${encodeURIComponent(date)}`)
   if (!response.ok) {
     throw new Error(`Profiles request failed: ${response.status}`)
   }
@@ -31,8 +40,8 @@ export async function fetchAllProfiles(): Promise<BuildingProfileMap> {
   return profiles
 }
 
-export async function fetchWeather(): Promise<WeatherHour[]> {
-  const response = await fetch(`${API_BASE_URL}/api/weather`)
+export async function fetchWeather(date: string): Promise<WeatherHour[]> {
+  const response = await fetch(`${API_BASE_URL}/api/weather?date=${encodeURIComponent(date)}`)
   if (!response.ok) {
     throw new Error(`Weather request failed: ${response.status}`)
   }
@@ -54,12 +63,16 @@ export async function fetchBuildings(): Promise<BuildingMetadata[]> {
 export async function simulateInterventions(
   slug: BuildingSlug,
   interventions: InterventionFlags,
+  date: string,
 ): Promise<EnergyState[]> {
-  const response = await fetch(`${API_BASE_URL}/api/buildings/${slug}/simulate`, {
+  const response = await fetch(
+    `${API_BASE_URL}/api/buildings/${slug}/simulate?date=${encodeURIComponent(date)}`,
+    {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(interventions),
-  })
+      body: JSON.stringify(interventions),
+    },
+  )
 
   if (!response.ok) {
     throw new Error(`Simulation request failed for ${slug}: ${response.status}`)
