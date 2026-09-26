@@ -23,13 +23,20 @@ import {
 } from 'cesium'
 import { deriveEnergyIntensityThresholds, getEnergyIntensityColor } from './config/energy'
 import { BuildingDetailPanel } from './components/BuildingDetailPanel'
-import { fetchAllProfiles, fetchBuildings, fetchWeather, simulateInterventions } from './services/api'
+import {
+  fetchAllProfiles,
+  fetchBuildings,
+  fetchSimulationConfig,
+  fetchWeather,
+  simulateInterventions,
+} from './services/api'
 import type {
   BuildingMetadata,
   BuildingProfileMap,
   BuildingSlug,
   EnergyState,
   InterventionFlags,
+  SimulationConfig,
   WeatherHour,
 } from './types/energy'
 
@@ -63,6 +70,7 @@ function App() {
 
   const [viewerReady, setViewerReady] = useState(false)
   const [mode, setMode] = useState<Mode>('reality')
+  const [simulation, setSimulation] = useState<SimulationConfig | null>(null)
   const [profiles, setProfiles] = useState<BuildingProfileMap | null>(null)
   const [scenarioProfiles, setScenarioProfiles] = useState<
     Partial<Record<BuildingSlug, EnergyState[]>>
@@ -82,22 +90,36 @@ function App() {
   const [showMethodology, setShowMethodology] = useState(false)
   const [buildingSearch, setBuildingSearch] = useState('')
 
+  const currentDate = useMemo(() => {
+    if (!simulation) return null
+    const dayOffset = Math.floor(currentIndex / simulation.intervals_per_day)
+    const date = new Date(`${simulation.start_date}T00:00:00`)
+    date.setDate(date.getDate() + dayOffset)
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-')
+  }, [simulation, currentIndex])
+
+  const currentDayIndex = simulation
+    ? currentIndex % simulation.intervals_per_day
+    : 0
+
   const loadTwinData = async () => {
     setIsDataLoading(true)
     setDataError(null)
     try {
-      const [profileData, weatherData, buildingData] = await Promise.all([
-        fetchAllProfiles(),
-        fetchWeather(),
+      const [simulationData, buildingData] = await Promise.all([
+        fetchSimulationConfig(),
         fetchBuildings(),
       ])
-      setProfiles(profileData)
-      setWeather(weatherData)
+      setSimulation(simulationData)
       setBuildings(buildingData)
+      setCurrentIndex(Math.min(48, simulationData.total_intervals - 1))
     } catch (err) {
-      console.error('Temple Twin data fetch failed:', err)
-      setDataError('Energy data could not be loaded from the Temple Twin API.')
-    } finally {
+      console.error('Temple Twin metadata fetch failed:', err)
+      setDataError('Temple Twin data could not be loaded from the API.')
       setIsDataLoading(false)
     }
   }
@@ -107,12 +129,53 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!isPlaying) return
+    if (!currentDate) return
+    let cancelled = false
+
+    const loadDay = async () => {
+      setIsDataLoading(true)
+      setDataError(null)
+      try {
+        const [profileData, weatherData] = await Promise.all([
+          fetchAllProfiles(currentDate),
+          fetchWeather(currentDate),
+        ])
+
+        const activeScenarios: Partial<Record<BuildingSlug, EnergyState[]>> = {}
+        for (const [slug, flags] of Object.entries(interventions)) {
+          if (flags.led || flags.hvac || flags.solar) {
+            activeScenarios[slug] = await simulateInterventions(slug, flags, currentDate)
+          }
+        }
+
+        if (!cancelled) {
+          setProfiles(profileData)
+          setWeather(weatherData)
+          setScenarioProfiles(activeScenarios)
+        }
+      } catch (err) {
+        console.error('Temple Twin daily data fetch failed:', err)
+        if (!cancelled) {
+          setDataError(`Energy data could not be loaded for ${currentDate}.`)
+        }
+      } finally {
+        if (!cancelled) setIsDataLoading(false)
+      }
+    }
+
+    void loadDay()
+    return () => {
+      cancelled = true
+    }
+  }, [currentDate])
+
+  useEffect(() => {
+    if (!isPlaying || !simulation) return
     const timer = window.setInterval(() => {
-      setCurrentIndex((index) => (index + 1) % 96)
+      setCurrentIndex((index) => (index + 1) % simulation.total_intervals)
     }, PLAY_INTERVAL_MS)
     return () => window.clearInterval(timer)
-  }, [isPlaying])
+  }, [isPlaying, simulation])
 
   useEffect(() => {
     if (!viewerRef.current) return
@@ -295,7 +358,7 @@ function App() {
 
     for (const building of buildings) {
       const activeProfile = scenarioProfiles[building.slug] ?? profiles[building.slug]
-      const state = activeProfile?.[currentIndex]
+      const state = activeProfile?.[currentDayIndex]
       const polygon = energyEntitiesRef.current.get(building.slug)?.polygon
       if (!state || !polygon) continue
 
@@ -321,16 +384,16 @@ function App() {
         )
       }
     }
-  }, [buildings, profiles, scenarioProfiles, currentIndex, thresholds, selectedSlug])
+  }, [buildings, profiles, scenarioProfiles, currentDayIndex, thresholds, selectedSlug])
 
   const currentStates = useMemo(() => {
     if (!profiles) return null
     return buildings.flatMap((building) => {
       const activeProfile = scenarioProfiles[building.slug] ?? profiles[building.slug]
-      const state = activeProfile?.[currentIndex]
+      const state = activeProfile?.[currentDayIndex]
       return state ? [{ ...building, state }] : []
     })
-  }, [buildings, profiles, scenarioProfiles, currentIndex])
+  }, [buildings, profiles, scenarioProfiles, currentDayIndex])
 
   const rankedCurrentStates = useMemo(
     () =>
@@ -361,10 +424,29 @@ function App() {
     [buildings],
   )
 
-  const currentClockHour = Math.floor(currentIndex / 4)
-  const currentMinute = (currentIndex % 4) * 15
+  const currentClockHour = Math.floor(currentDayIndex / 4)
+  const currentMinute = (currentDayIndex % 4) * 15
   const timeLabel = `${String(currentClockHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`
   const currentWeather = weather?.[currentClockHour] ?? null
+  const dateLabel = currentDate
+    ? new Date(`${currentDate}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : 'Loading date'
+  const startDateLabel = simulation
+    ? new Date(`${simulation.start_date}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      })
+    : ''
+  const endDateLabel = simulation
+    ? new Date(`${simulation.end_date}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      })
+    : ''
 
   const weatherLabel = (() => {
     if (!currentWeather) return 'Weather unavailable'
@@ -381,7 +463,10 @@ function App() {
 
   const stepInterval = (delta: number) => {
     setIsPlaying(false)
-    setCurrentIndex((index) => (index + delta + 96) % 96)
+    if (!simulation) return
+    setCurrentIndex(
+      (index) => (index + delta + simulation.total_intervals) % simulation.total_intervals,
+    )
   }
 
   const resetCamera = () => {
@@ -431,7 +516,8 @@ function App() {
     setIsSimulating(true)
     setDataError(null)
     try {
-      const simulated = await simulateInterventions(slug, nextFlags)
+      if (!currentDate) return
+      const simulated = await simulateInterventions(slug, nextFlags, currentDate)
       setInterventions((current) => ({ ...current, [slug]: nextFlags }))
       setScenarioProfiles((current) => ({ ...current, [slug]: simulated }))
     } catch (err) {
@@ -483,7 +569,7 @@ function App() {
         <div className="status-copy">
           {mode === 'energy' && currentWeather ? (
             <>
-              <strong>Friday · {timeLabel}</strong>
+              <strong>{dateLabel} · {timeLabel}</strong>
               <span>{currentWeather.temperature_f.toFixed(0)}°F · {weatherLabel}</span>
             </>
           ) : (
@@ -509,7 +595,7 @@ function App() {
                 building={selectedBuilding}
                 baselineProfile={profiles[selectedBuilding.slug]}
                 profile={selectedProfile}
-                currentIndex={currentIndex}
+                currentIndex={currentDayIndex}
                 interventions={interventions[selectedBuilding.slug] ?? EMPTY_INTERVENTIONS}
                 isSimulating={isSimulating}
                 onToggle={(key) => void toggleIntervention(selectedBuilding.slug, key)}
@@ -639,7 +725,7 @@ function App() {
             )}
           </aside>
 
-          <section className="timeline" aria-label="Friday energy timeline">
+          <section className="timeline" aria-label="Three-month energy timeline">
             <button className="icon-button" type="button" onClick={() => stepInterval(-1)} aria-label="Previous 15 minutes">‹</button>
             <button
               type="button"
@@ -653,13 +739,13 @@ function App() {
             <div className="timeline-main">
               <div className="timeline-header">
                 <span>00:00</span>
-                <strong>Friday · {timeLabel}</strong>
+                <strong>{dateLabel} · {timeLabel}</strong>
                 <span>23:45</span>
               </div>
               <input
                 type="range"
                 min="0"
-                max="95"
+                max={Math.max((simulation?.total_intervals ?? 1) - 1, 0)}
                 step="1"
                 value={currentIndex}
                 onChange={(event) => {
@@ -692,6 +778,7 @@ function App() {
               totals are matched to Philadelphia 2024 benchmarking; the remainder
               use Temple FY2025 campus EUI calibration. Every 15-minute profile uses
               NREL ComStock, historical Philadelphia weather, and EPA eGRID carbon.
+              The interactive timeline spans Sep 1 through Nov 30, 2018.
             </p>
           </div>
         )}
