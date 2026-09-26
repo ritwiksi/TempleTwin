@@ -27,3 +27,13 @@ jobs:
           python-version: "3.12"
       - run: pip install -r backend/requirements-dev.txt
       - run: pytest -q backend/tests
+
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -f Dockerfile.backend -t temple-twin-backend:test .
+      - name: Build frontend image
+        run: docker build -f Dockerfile.frontend --build-arg VITE_CESIUM_ION_TOKEN=dummy-token --build-arg VITE_API_BASE_URL= -t temple-twin-frontend:test .
