@@ -149,7 +149,7 @@ export function BuildingDetailPanel({
           <span>24-hour load</span>
           <span>{String(current.hour).padStart(2, '0')}:{String((currentIndex % 4) * 15).padStart(2, '0')}</span>
         </div>
-        <svg className="load-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Friday electricity demand curve">
+        <svg className="load-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Current-day electricity demand curve">
           <line x1="0" y1={height} x2={width} y2={height} className="chart-axis" />
           <path d={path} className="chart-line" />
           <line x1={markerX} y1="0" x2={markerX} y2={height} className="chart-marker-line" />
