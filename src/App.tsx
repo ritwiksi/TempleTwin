@@ -212,7 +212,7 @@ function App() {
           ),
           label: {
             text: building.name,
-            font: '600 13px Inter, system-ui, sans-serif',
+            font: "600 13px 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, monospace",
             fillColor: Color.WHITE,
             outlineColor: Color.TRANSPARENT,
             outlineWidth: 0,
