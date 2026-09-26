@@ -3,10 +3,9 @@ import {
   Cartesian2,
   Cartesian3,
   Cesium3DTileset,
-  Cesium3DTileStyle,
+  ClassificationType,
   Color,
   createGooglePhotorealistic3DTileset,
-  createOsmBuildingsAsync,
   Entity,
   Ion,
   IonGeocodeProviderType,
@@ -78,7 +77,6 @@ const BUILDINGS: FocusBuilding[] = [
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const realityTilesRef = useRef<Cesium3DTileset | null>(null)
-  const energyTilesRef = useRef<Cesium3DTileset | null>(null)
   const energyEntitiesRef = useRef<Entity[]>([])
   const [mode, setMode] = useState<Mode>('reality')
   const [error, setError] = useState<string | null>(null)
@@ -139,25 +137,10 @@ function App() {
       }
     }
 
-    const addEnergyEntities = () => {
-      const ground = viewer.entities.add({
-        show: false,
-        polygon: {
-          hierarchy: new PolygonHierarchy(
-            Cartesian3.fromDegreesArray([
-              -75.1580, 39.9785,
-              -75.1490, 39.9785,
-              -75.1490, 39.9850,
-              -75.1580, 39.9850,
-            ]),
-          ),
-          height: -1,
-          material: Color.fromCssColorString('#20252b'),
-        },
-      })
-      energyEntitiesRef.current.push(ground)
-
+    const addEnergyHighlights = () => {
       for (const building of BUILDINGS) {
+        const tint = Color.fromCssColorString(building.testColor).withAlpha(0.5)
+
         const entity = viewer.entities.add({
           name: `${building.name} — temporary Milestone 2 test intensity ${building.testIntensityWPerFt2} W/ft²`,
           show: false,
@@ -165,13 +148,11 @@ function App() {
             hierarchy: new PolygonHierarchy(
               Cartesian3.fromDegreesArray(building.footprint),
             ),
-            height: 0,
-            extrudedHeight: building.height + 1,
-            material: Color.fromCssColorString(building.testColor),
-            outline: true,
-            outlineColor: Color.fromCssColorString('#111827'),
+            material: tint,
+            classificationType: ClassificationType.CESIUM_3D_TILE,
           },
         })
+
         energyEntitiesRef.current.push(entity)
       }
     }
@@ -182,21 +163,11 @@ function App() {
           onlyUsingWithGoogleGeocoder: true,
         })
         if (disposed) return
+
         realityTilesRef.current = realityTiles
         viewer.scene.primitives.add(realityTiles)
 
-        const energyTiles = await createOsmBuildingsAsync({
-          style: new Cesium3DTileStyle({
-            color: 'color("#777d84", 0.82)',
-          }),
-          showOutline: false,
-        })
-        if (disposed) return
-        energyTiles.show = false
-        energyTilesRef.current = energyTiles
-        viewer.scene.primitives.add(energyTiles)
-
-        addEnergyEntities()
+        addEnergyHighlights()
         addPermanentLabels()
 
         viewer.camera.flyTo({
@@ -224,12 +195,15 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const isReality = mode === 'reality'
-    if (realityTilesRef.current) realityTilesRef.current.show = isReality
-    if (energyTilesRef.current) energyTilesRef.current.show = !isReality
+    // Keep the photorealistic campus visible in both modes so switching feels
+    // like an analytical overlay rather than loading a different city model.
+    if (realityTilesRef.current) realityTilesRef.current.show = true
+
+    const showEnergy = mode === 'energy'
     for (const entity of energyEntitiesRef.current) {
-      entity.show = !isReality
+      entity.show = showEnergy
     }
+
     setError(null)
   }, [mode])
 
