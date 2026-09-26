@@ -2,25 +2,85 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Cartesian2,
   Cartesian3,
+  Cesium3DTileset,
+  Cesium3DTileStyle,
   Color,
   createGooglePhotorealistic3DTileset,
+  createOsmBuildingsAsync,
+  Entity,
   Ion,
   IonGeocodeProviderType,
   LabelStyle,
   Math as CesiumMath,
   NearFarScalar,
+  PolygonHierarchy,
   Viewer,
   VerticalOrigin,
 } from 'cesium'
 
-const BUILDINGS = [
-  { name: 'SERC', longitude: -75.15304, latitude: 39.98198, height: 43 },
-  { name: 'Beury Hall', longitude: -75.15449, latitude: 39.98210, height: 34 },
-  { name: 'Engineering Building', longitude: -75.15283, latitude: 39.98257, height: 28 },
+type Mode = 'reality' | 'energy'
+
+type FocusBuilding = {
+  name: string
+  longitude: number
+  latitude: number
+  height: number
+  footprint: number[]
+  testIntensityWPerFt2: number
+  testColor: string
+}
+
+const BUILDINGS: FocusBuilding[] = [
+  {
+    name: 'SERC',
+    longitude: -75.15304,
+    latitude: 39.98198,
+    height: 43,
+    footprint: [
+      -75.15334, 39.98172,
+      -75.15276, 39.98172,
+      -75.15276, 39.98223,
+      -75.15334, 39.98223,
+    ],
+    testIntensityWPerFt2: 8.1,
+    testColor: '#ef4444',
+  },
+  {
+    name: 'Beury Hall',
+    longitude: -75.15449,
+    latitude: 39.98210,
+    height: 34,
+    footprint: [
+      -75.15478, 39.98190,
+      -75.15420, 39.98190,
+      -75.15420, 39.98231,
+      -75.15478, 39.98231,
+    ],
+    testIntensityWPerFt2: 5.6,
+    testColor: '#f59e0b',
+  },
+  {
+    name: 'Engineering Building',
+    longitude: -75.15283,
+    latitude: 39.98257,
+    height: 28,
+    footprint: [
+      -75.15308, 39.98239,
+      -75.15257, 39.98239,
+      -75.15257, 39.98276,
+      -75.15308, 39.98276,
+    ],
+    testIntensityWPerFt2: 2.4,
+    testColor: '#22c55e',
+  },
 ]
 
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
+  const realityTilesRef = useRef<Cesium3DTileset | null>(null)
+  const energyTilesRef = useRef<Cesium3DTileset | null>(null)
+  const energyEntitiesRef = useRef<Entity[]>([])
+  const [mode, setMode] = useState<Mode>('reality')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -28,7 +88,7 @@ function App() {
 
     const token = import.meta.env.VITE_CESIUM_ION_TOKEN
     if (!token) {
-      setError('Add VITE_CESIUM_ION_TOKEN to .env to load the photorealistic campus.')
+      setError('Add VITE_CESIUM_ION_TOKEN to .env to load the campus.')
       return
     }
 
@@ -54,36 +114,90 @@ function App() {
 
     let disposed = false
 
+    const addPermanentLabels = () => {
+      for (const building of BUILDINGS) {
+        viewer.entities.add({
+          position: Cartesian3.fromDegrees(
+            building.longitude,
+            building.latitude,
+            building.height + 3,
+          ),
+          label: {
+            text: building.name,
+            font: '600 15px Inter, system-ui, sans-serif',
+            fillColor: Color.WHITE,
+            outlineColor: Color.fromCssColorString('#0B1118'),
+            outlineWidth: 4,
+            style: LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: VerticalOrigin.BOTTOM,
+            pixelOffset: new Cartesian2(0, -10),
+            scaleByDistance: new NearFarScalar(250, 1.1, 2500, 0.72),
+            translucencyByDistance: new NearFarScalar(1800, 1, 5500, 0),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        })
+      }
+    }
+
+    const addEnergyEntities = () => {
+      const ground = viewer.entities.add({
+        show: false,
+        polygon: {
+          hierarchy: new PolygonHierarchy(
+            Cartesian3.fromDegreesArray([
+              -75.1580, 39.9785,
+              -75.1490, 39.9785,
+              -75.1490, 39.9850,
+              -75.1580, 39.9850,
+            ]),
+          ),
+          height: -1,
+          material: Color.fromCssColorString('#20252b'),
+        },
+      })
+      energyEntitiesRef.current.push(ground)
+
+      for (const building of BUILDINGS) {
+        const entity = viewer.entities.add({
+          name: `${building.name} — temporary Milestone 2 test intensity ${building.testIntensityWPerFt2} W/ft²`,
+          show: false,
+          polygon: {
+            hierarchy: new PolygonHierarchy(
+              Cartesian3.fromDegreesArray(building.footprint),
+            ),
+            height: 0,
+            extrudedHeight: building.height + 1,
+            material: Color.fromCssColorString(building.testColor),
+            outline: true,
+            outlineColor: Color.fromCssColorString('#111827'),
+          },
+        })
+        energyEntitiesRef.current.push(entity)
+      }
+    }
+
     const initialize = async () => {
       try {
-        const tileset = await createGooglePhotorealistic3DTileset({
+        const realityTiles = await createGooglePhotorealistic3DTileset({
           onlyUsingWithGoogleGeocoder: true,
         })
         if (disposed) return
-        viewer.scene.primitives.add(tileset)
+        realityTilesRef.current = realityTiles
+        viewer.scene.primitives.add(realityTiles)
 
-        for (const building of BUILDINGS) {
-          viewer.entities.add({
-            position: Cartesian3.fromDegrees(
-              building.longitude,
-              building.latitude,
-              building.height,
-            ),
-            label: {
-              text: building.name,
-              font: '600 15px Inter, system-ui, sans-serif',
-              fillColor: Color.WHITE,
-              outlineColor: Color.fromCssColorString('#0B1118'),
-              outlineWidth: 4,
-              style: LabelStyle.FILL_AND_OUTLINE,
-              verticalOrigin: VerticalOrigin.BOTTOM,
-              pixelOffset: new Cartesian2(0, -10),
-              scaleByDistance: new NearFarScalar(250, 1.1, 2500, 0.72),
-              translucencyByDistance: new NearFarScalar(1800, 1, 5500, 0),
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            },
-          })
-        }
+        const energyTiles = await createOsmBuildingsAsync({
+          style: new Cesium3DTileStyle({
+            color: 'color("#777d84", 0.82)',
+          }),
+          showOutline: false,
+        })
+        if (disposed) return
+        energyTiles.show = false
+        energyTilesRef.current = energyTiles
+        viewer.scene.primitives.add(energyTiles)
+
+        addEnergyEntities()
+        addPermanentLabels()
 
         viewer.camera.flyTo({
           destination: Cartesian3.fromDegrees(-75.1597, 39.9764, 820),
@@ -97,7 +211,7 @@ function App() {
       } catch (err) {
         console.error('Temple Twin Cesium initialization failed:', err)
         const detail = err instanceof Error ? err.message : String(err)
-        setError(`Reality Mode failed: ${detail}`)
+        setError(`Campus view failed: ${detail}`)
       }
     }
 
@@ -109,14 +223,60 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    const isReality = mode === 'reality'
+    if (realityTilesRef.current) realityTilesRef.current.show = isReality
+    if (energyTilesRef.current) energyTilesRef.current.show = !isReality
+    for (const entity of energyEntitiesRef.current) {
+      entity.show = !isReality
+    }
+    setError(null)
+  }, [mode])
+
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${mode === 'energy' ? 'energy-mode' : ''}`}>
       <div ref={viewerRef} className="viewer" />
+
       <header className="brand">
         <div className="eyebrow">TEMPLE TWIN</div>
         <div className="subtitle">Campus Energy Digital Twin</div>
       </header>
-      <div className="mode-pill" aria-label="Current mode">REALITY</div>
+
+      <div className="mode-switch" role="group" aria-label="Visualization mode">
+        <button
+          type="button"
+          className={mode === 'reality' ? 'active' : ''}
+          onClick={() => setMode('reality')}
+        >
+          REALITY
+        </button>
+        <button
+          type="button"
+          className={mode === 'energy' ? 'active' : ''}
+          onClick={() => setMode('energy')}
+        >
+          ENERGY
+        </button>
+      </div>
+
+      {mode === 'energy' && (
+        <aside className="energy-legend" aria-label="Energy intensity legend">
+          <div className="legend-title">ENERGY INTENSITY</div>
+          <div className="legend-formula">
+            <span>Current Demand (W)</span>
+            <span className="formula-line" />
+            <span>Floor Area (ft²)</span>
+          </div>
+          <div className="legend-scale">
+            <div><span className="swatch low" />LOW</div>
+            <div><span className="swatch moderate" />MODERATE</div>
+            <div><span className="swatch high" />HIGH</div>
+            <div><span className="swatch very-high" />VERY HIGH</div>
+          </div>
+          <div className="legend-note">Temporary test colors · Milestone 2</div>
+        </aside>
+      )}
+
       {error && <div className="error-banner">{error}</div>}
     </main>
   )
