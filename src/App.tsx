@@ -166,13 +166,13 @@ function App() {
           label: {
             text: building.name,
             font: '600 13px Inter, system-ui, sans-serif',
-            fillColor: Color.fromCssColorString('#111827'),
-            outlineColor: Color.fromCssColorString('#F8FAFC'),
+            fillColor: Color.WHITE,
+            outlineColor: Color.fromCssColorString('#0B0D11'),
             outlineWidth: 1,
             style: LabelStyle.FILL_AND_OUTLINE,
             showBackground: true,
-            backgroundColor: Color.fromCssColorString('#F8FAFC').withAlpha(0.94),
-            backgroundPadding: new Cartesian2(8, 5),
+            backgroundColor: Color.fromCssColorString('#111318').withAlpha(0.88),
+            backgroundPadding: new Cartesian2(9, 6),
             verticalOrigin: VerticalOrigin.BOTTOM,
             pixelOffset: new Cartesian2(0, -10),
             scaleByDistance: new NearFarScalar(250, 1.1, 2500, 0.72),
@@ -315,76 +315,107 @@ function App() {
     <main className={`app-shell ${mode === 'energy' ? 'energy-mode' : ''}`}>
       <div ref={viewerRef} className="viewer" />
 
-      <header className="brand">
-        <div className="eyebrow">TEMPLE TWIN</div>
-        <div className="subtitle">Campus Energy Digital Twin</div>
-      </header>
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-dot" />
+          <div>
+            <div className="eyebrow">TEMPLE TWIN</div>
+            <div className="subtitle">Campus Energy Digital Twin</div>
+          </div>
+        </div>
 
-      <div className="mode-switch" role="group" aria-label="Visualization mode">
-        <button
-          type="button"
-          className={mode === 'reality' ? 'active' : ''}
-          onClick={() => setMode('reality')}
-        >
-          REALITY
-        </button>
-        <button
-          type="button"
-          className={mode === 'energy' ? 'active' : ''}
-          onClick={() => setMode('energy')}
-        >
-          ENERGY
-        </button>
-      </div>
+        <div className="mode-switch" role="group" aria-label="Visualization mode">
+          <button
+            type="button"
+            className={mode === 'reality' ? 'active' : ''}
+            onClick={() => setMode('reality')}
+          >
+            Reality
+          </button>
+          <button
+            type="button"
+            className={mode === 'energy' ? 'active' : ''}
+            onClick={() => setMode('energy')}
+          >
+            Energy
+          </button>
+        </div>
+
+        <div className="topbar-status">
+          {mode === 'energy' && currentWeather ? (
+            <>
+              <span>{currentWeather.temperature_f.toFixed(0)}°F</span>
+              <span className="status-dot">·</span>
+              <span>{weatherLabel}</span>
+            </>
+          ) : (
+            <span>Temple University · Philadelphia</span>
+          )}
+        </div>
+      </header>
 
       {mode === 'energy' && (
         <>
-          <aside className="energy-legend" aria-label="Energy intensity legend">
-            <div className="legend-title">ENERGY INTENSITY</div>
-            <div className="legend-formula">
-              <span>Current Demand (W)</span>
-              <span className="formula-line" />
-              <span>Floor Area (ft²)</span>
-            </div>
-            <div className="legend-scale">
-              <div><span className="swatch low" />LOW &lt; {thresholds.moderate.toFixed(2)}</div>
-              <div><span className="swatch moderate" />MODERATE</div>
-              <div><span className="swatch high" />HIGH</div>
-              <div><span className="swatch very-high" />VERY HIGH ≥ {thresholds.veryHigh.toFixed(2)}</div>
-            </div>
-            <div className="legend-note">W/ft² · breaks derived from today's shared distribution</div>
-          </aside>
-
-          <aside className="hour-metrics" aria-label="Current building metrics">
-            <div className="metrics-header">
-              <div className="metrics-time">FRIDAY · {timeLabel}</div>
-              <div className="weather-chip">
-                {currentWeather
-                  ? `${currentWeather.temperature_f.toFixed(0)}°F · ${weatherLabel}`
-                  : 'Weather unavailable'}
+          <aside className="energy-dock" aria-label="Current building metrics">
+            <div className="dock-head">
+              <div>
+                <div className="dock-kicker">ENERGY MODE</div>
+                <div className="dock-title">Campus load</div>
               </div>
+              <div className="dock-time">{timeLabel}</div>
             </div>
+
             {dataError ? (
               <div className="data-error">{dataError}</div>
             ) : !currentStates ? (
               <div className="loading-copy">Loading Tiger-backed profiles…</div>
             ) : (
-              currentStates.map(({ slug, name, state }) => (
-                <div className="metric-row" key={slug}>
-                  <div>
-                    <div className="metric-name">{name}</div>
-                    <div className="metric-intensity">
-                      {state.energy_intensity_w_ft2.toFixed(2)} W/ft²
+              <div className="building-list">
+                {currentStates.map(({ slug, name, state }) => (
+                  <div className="building-row" key={slug}>
+                    <div className="building-row-main">
+                      <span
+                        className="building-status"
+                        style={{ background: getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds) }}
+                      />
+                      <div>
+                        <div className="metric-name">{name}</div>
+                        <div className="metric-intensity">
+                          {state.energy_intensity_w_ft2.toFixed(2)} W/ft²
+                        </div>
+                      </div>
+                    </div>
+                    <div className="metric-demand">
+                      {state.demand_kw.toFixed(0)}
+                      <span> kW</span>
                     </div>
                   </div>
-                  <div className="metric-demand">{state.demand_kw.toFixed(0)} kW</div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </aside>
 
+          <aside className="energy-legend" aria-label="Energy intensity legend">
+            <div className="legend-title">Energy intensity</div>
+            <div className="legend-ramp" />
+            <div className="legend-axis">
+              <span>Low</span>
+              <span>Moderate</span>
+              <span>High</span>
+              <span>Very high</span>
+            </div>
+            <div className="legend-values">
+              <span>&lt; {thresholds.moderate.toFixed(2)}</span>
+              <span>{thresholds.high.toFixed(2)}</span>
+              <span>≥ {thresholds.veryHigh.toFixed(2)} W/ft²</span>
+            </div>
+            <div className="legend-formula">
+              demand (W) ÷ floor area (ft²)
+            </div>
+          </aside>
+
           <section className="timeline" aria-label="Friday energy timeline">
-            <button type="button" onClick={() => stepInterval(-1)} aria-label="Previous 15 minutes">
+            <button className="icon-button" type="button" onClick={() => stepInterval(-1)} aria-label="Previous 15 minutes">
               ‹
             </button>
             <button
@@ -393,7 +424,7 @@ function App() {
               onClick={() => setIsPlaying((playing) => !playing)}
               disabled={!profiles}
             >
-              {isPlaying ? 'PAUSE' : 'PLAY'}
+              {isPlaying ? 'Pause' : 'Play'}
             </button>
             <div className="timeline-main">
               <div className="timeline-header">
@@ -414,7 +445,7 @@ function App() {
                 aria-label="15-minute interval"
               />
             </div>
-            <button type="button" onClick={() => stepInterval(1)} aria-label="Next 15 minutes">
+            <button className="icon-button" type="button" onClick={() => stepInterval(1)} aria-label="Next 15 minutes">
               ›
             </button>
           </section>
