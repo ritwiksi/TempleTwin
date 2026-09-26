@@ -68,6 +68,7 @@ def apply_interventions(
     slug: str,
     profile: list[dict[str, Any]],
     weather_rows: list[dict[str, Any]],
+    floor_area_ft2: float,
     *,
     led: bool = False,
     hvac: bool = False,
@@ -95,6 +96,7 @@ def apply_interventions(
             solar_kw = solar_generation_kw(slug, ghi)
 
         grid_import_kw = max(demand_kw - solar_kw, 0.0)
+        energy_intensity_w_ft2 = demand_kw * 1000.0 / floor_area_ft2
         carbon_kg = (
             grid_import_kw
             * INTERVAL_HOURS
@@ -111,6 +113,7 @@ def apply_interventions(
                 "demand_kw": demand_kw,
                 "solar_kw": solar_kw,
                 "grid_import_kw": grid_import_kw,
+                "energy_intensity_w_ft2": energy_intensity_w_ft2,
                 "carbon_kg": carbon_kg,
             }
         )
