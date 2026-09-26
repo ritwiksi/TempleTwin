@@ -36,10 +36,10 @@ const BUILDINGS: FocusBuilding[] = [
     latitude: 39.98198,
     height: 43,
     footprint: [
-      -75.15334, 39.98172,
-      -75.15276, 39.98172,
-      -75.15276, 39.98223,
-      -75.15334, 39.98223,
+      -75.15342, 39.98166,
+      -75.15268, 39.98166,
+      -75.15268, 39.98228,
+      -75.15342, 39.98228,
     ],
     testIntensityWPerFt2: 8.1,
     testColor: '#ef4444',
@@ -50,10 +50,10 @@ const BUILDINGS: FocusBuilding[] = [
     latitude: 39.98210,
     height: 34,
     footprint: [
-      -75.15478, 39.98190,
-      -75.15420, 39.98190,
-      -75.15420, 39.98231,
-      -75.15478, 39.98231,
+      -75.15486, 39.98184,
+      -75.15413, 39.98184,
+      -75.15413, 39.98236,
+      -75.15486, 39.98236,
     ],
     testIntensityWPerFt2: 5.6,
     testColor: '#f59e0b',
@@ -64,10 +64,10 @@ const BUILDINGS: FocusBuilding[] = [
     latitude: 39.98257,
     height: 28,
     footprint: [
-      -75.15308, 39.98239,
-      -75.15257, 39.98239,
-      -75.15257, 39.98276,
-      -75.15308, 39.98276,
+      -75.15316, 39.98233,
+      -75.15249, 39.98233,
+      -75.15249, 39.98282,
+      -75.15316, 39.98282,
     ],
     testIntensityWPerFt2: 2.4,
     testColor: '#22c55e',
@@ -139,7 +139,7 @@ function App() {
 
     const addEnergyHighlights = () => {
       for (const building of BUILDINGS) {
-        const tint = Color.fromCssColorString(building.testColor).withAlpha(0.5)
+        const tint = Color.fromCssColorString(building.testColor).withAlpha(0.62)
 
         const entity = viewer.entities.add({
           name: `${building.name} — temporary Milestone 2 test intensity ${building.testIntensityWPerFt2} W/ft²`,
