@@ -71,6 +71,13 @@ EXCLUDE_NAME_PARTS = (
     "track",
 )
 
+# Current-campus naming rules. These legacy labels refer to the same physical
+# buildings as their current Temple names and must never count as separate assets.
+OBSOLETE_ALIAS_NAMES = {
+    "anderson hall",   # renamed Mazur Hall
+    "paley library",   # renovated/currently Paley Hall
+}
+
 # Priority keeps iconic/current buildings if a source exposes >50 qualifying
 # structures. Everything else is filled by gross floor area.
 PRIORITY_NAMES = (
@@ -79,12 +86,14 @@ PRIORITY_NAMES = (
     "beury",
     "engineering",
     "alter",
-    "anderson",
+    "mazur",
     "annenberg",
     "architecture",
     "biology",
     "charles library",
+    "facilities management",
     "gladfelter",
+    "paley hall",
     "wachman",
     "weiss",
     "tyler",
@@ -485,6 +494,8 @@ def main() -> None:
             continue
         name = str(name_raw).strip()
         if len(name) < 3 or is_excluded(name):
+            continue
+        if name.lower().strip() in OBSOLETE_ALIAS_NAMES:
             continue
 
         rings = geometry_rings(feature.get("geometry") or {})
