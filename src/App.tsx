@@ -202,14 +202,14 @@ function App() {
           ),
           label: {
             text: building.name,
-            font: '650 14px Inter, system-ui, sans-serif',
+            font: '600 13px Inter, system-ui, sans-serif',
             fillColor: Color.WHITE,
-            outlineColor: Color.fromCssColorString('#0B0D11'),
-            outlineWidth: 1,
-            style: LabelStyle.FILL_AND_OUTLINE,
+            outlineColor: Color.TRANSPARENT,
+            outlineWidth: 0,
+            style: LabelStyle.FILL,
             showBackground: true,
-            backgroundColor: Color.fromCssColorString('#0F1217').withAlpha(0.92),
-            backgroundPadding: new Cartesian2(10, 6),
+            backgroundColor: Color.fromCssColorString('#09090B').withAlpha(0.82),
+            backgroundPadding: new Cartesian2(8, 5),
             verticalOrigin: VerticalOrigin.BOTTOM,
             pixelOffset: new Cartesian2(0, -10),
             scaleByDistance: new NearFarScalar(250, 1.1, 2500, 0.72),
@@ -419,7 +419,7 @@ function App() {
         <div className="brand-mark">T</div>
         <div className="brand-copy">
           <div className="eyebrow">TEMPLE TWIN</div>
-          <div className="subtitle">Campus Energy Digital Twin</div>
+          <div className="subtitle">Campus energy digital twin</div>
         </div>
       </div>
 
@@ -452,7 +452,7 @@ function App() {
           ) : (
             <>
               <strong>Main Campus</strong>
-              <span>Philadelphia, PA</span>
+              <span>Philadelphia · PA</span>
             </>
           )}
         </div>
@@ -479,7 +479,7 @@ function App() {
               <>
                 <div className="dock-head">
                   <div>
-                    <div className="dock-kicker">ENERGY MODE</div>
+                    <div className="dock-kicker">ENERGY OVERVIEW</div>
                     <div className="dock-title">Campus load</div>
                   </div>
                   <div className="dock-time">{timeLabel}</div>
