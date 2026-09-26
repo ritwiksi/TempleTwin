@@ -57,3 +57,29 @@ LB_TO_KG = 0.45359237
 EGRID_RFCE_CO2E_KG_PER_KWH = (
     EGRID_RFCE_CO2E_LB_PER_MWH * LB_TO_KG / 1000.0
 )
+
+
+# Milestone 8 intervention scenarios.
+# LED: DOE Forrestal Building project reduced lighting energy use by 50%.
+LED_LIGHTING_REDUCTION_FRACTION = 0.50
+
+# HVAC: conservative scenario assumption informed by DOE commercial controls studies
+# showing ~6-8% whole-building savings from individual HVAC control measures.
+# This is NOT a measured Temple retrofit result.
+HVAC_EFFICIENCY_IMPROVEMENT_FRACTION = 0.10
+
+# Rooftop PV assumptions.
+# NREL rooftop technical-potential work used ~60-65% suitable commercial roof
+# area and 160 W/m2 module power density. PVWatts default losses are 14%.
+PV_USABLE_ROOF_FRACTION = 0.60
+PV_MODULE_POWER_DENSITY_KW_M2 = 0.160
+PV_SYSTEM_LOSS_FRACTION = 0.14
+FT2_TO_M2 = 0.09290304
+
+# Approximate roof footprints. SERC uses gross area / 7 floors; Beury and
+# Engineering use the footprint estimates already documented in buildings.csv.
+ROOF_AREA_FT2 = {
+    "serc": 250_000.0 / 7.0,
+    "beury": 38_800.0,
+    "engineering": 33_550.0,
+}
