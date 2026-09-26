@@ -18,8 +18,8 @@ import {
   VerticalOrigin,
 } from 'cesium'
 import { deriveEnergyIntensityThresholds, getEnergyIntensityColor } from './config/energy'
-import { fetchAllProfiles } from './services/api'
-import type { BuildingProfileMap, BuildingSlug } from './types/energy'
+import { fetchAllProfiles, fetchWeather } from './services/api'
+import type { BuildingProfileMap, BuildingSlug, WeatherHour } from './types/energy'
 
 type Mode = 'reality' | 'energy'
 
@@ -83,6 +83,7 @@ function App() {
 
   const [mode, setMode] = useState<Mode>('reality')
   const [profiles, setProfiles] = useState<BuildingProfileMap | null>(null)
+  const [weather, setWeather] = useState<WeatherHour[] | null>(null)
   const [currentIndex, setCurrentIndex] = useState(48)
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -91,10 +92,11 @@ function App() {
   useEffect(() => {
     let cancelled = false
 
-    fetchAllProfiles()
-      .then((data) => {
+    Promise.all([fetchAllProfiles(), fetchWeather()])
+      .then(([profileData, weatherData]) => {
         if (!cancelled) {
-          setProfiles(data)
+          setProfiles(profileData)
+          setWeather(weatherData)
           setDataError(null)
         }
       })
@@ -286,6 +288,20 @@ function App() {
   const currentClockHour = Math.floor(currentIndex / 4)
   const currentMinute = (currentIndex % 4) * 15
   const timeLabel = `${String(currentClockHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`
+  const currentWeather = weather?.[currentClockHour] ?? null
+
+  const weatherLabel = (() => {
+    if (!currentWeather) return 'Weather unavailable'
+    const code = currentWeather.weather_code
+    if (code === 0) return 'Clear'
+    if (code <= 3) return 'Partly Cloudy'
+    if (code <= 48) return 'Fog'
+    if (code <= 67) return 'Rain'
+    if (code <= 77) return 'Snow'
+    if (code <= 82) return 'Showers'
+    if (code <= 99) return 'Thunderstorm'
+    return 'Weather'
+  })()
 
   const stepInterval = (delta: number) => {
     setIsPlaying(false)
@@ -337,7 +353,14 @@ function App() {
           </aside>
 
           <aside className="hour-metrics" aria-label="Current building metrics">
-            <div className="metrics-time">FRIDAY · {timeLabel}</div>
+            <div className="metrics-header">
+              <div className="metrics-time">FRIDAY · {timeLabel}</div>
+              <div className="weather-chip">
+                {currentWeather
+                  ? `${currentWeather.temperature_f.toFixed(0)}°F · ${weatherLabel}`
+                  : 'Weather unavailable'}
+              </div>
+            </div>
             {dataError ? (
               <div className="data-error">{dataError}</div>
             ) : !currentStates ? (
