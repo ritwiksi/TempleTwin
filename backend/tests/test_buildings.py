@@ -32,3 +32,37 @@ def test_area_and_geometry_provenance_is_present():
         assert building.electricity_source.strip()
         assert building.model_notes.strip()
         assert len(building.footprint) >= 6
+
+
+def test_campus_inventory_has_50_distinct_current_physical_buildings():
+    buildings = load_buildings()
+    names = {b.display_name.replace("\n", " ").strip().lower() for b in buildings}
+
+    # Current Temple names replace obsolete aliases for the same physical assets.
+    assert "anderson hall" not in names
+    assert "paley library" not in names
+    assert "mazur hall" in names
+    assert "paley hall" in names
+    assert "facilities management" in names
+
+    # No two modeled assets may occupy the exact same authoritative GIS centroid.
+    coordinate_pairs = {
+        (round(b.latitude, 7), round(b.longitude, 7))
+        for b in buildings
+    }
+    assert len(coordinate_pairs) == len(buildings) == 50
+
+
+def test_campus_energy_provenance_counts_are_explicit():
+    buildings = load_buildings()
+    reported = [b for b in buildings if b.data_confidence == "reported-electricity"]
+    calibrated = [
+        b for b in buildings
+        if b.data_confidence == "authoritative-area-modeled-electricity"
+    ]
+
+    assert len(reported) == 23
+    assert len(calibrated) == 27
+    assert len(reported) + len(calibrated) == 50
+    assert all(b.annual_electricity_kwh is not None for b in reported)
+    assert all(b.annual_electricity_kwh is None for b in calibrated)
