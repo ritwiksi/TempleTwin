@@ -15,4 +15,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm run build
+      - name: TypeScript compile
+        run: npx tsc -b
+      - name: Vite production bundle
+        run: npx vite build
