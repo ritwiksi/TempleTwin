@@ -1,9 +1,9 @@
 """Centralized Temple Twin modeling inputs.
 
 Load shapes/end uses come from official NREL/OEDI ComStock 15-minute data.
-Absolute annual magnitude uses Temple's published campus-wide electricity EUI
-uniformly for all three buildings until defensible building-specific annual
-energy data or a calibrated physics model is available.
+Absolute annual magnitude uses building-level Philadelphia benchmarking where
+an unambiguous report exists; other buildings use Temple's published FY2025
+campus-wide electricity EUI.
 """
 
 CAMPUS_ELECTRICITY_MMBTU_FY2025 = 612_025.0
