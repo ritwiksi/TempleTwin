@@ -17,7 +17,7 @@ import {
   Viewer,
   VerticalOrigin,
 } from 'cesium'
-import { ENERGY_INTENSITY_THRESHOLDS, getEnergyIntensityColor } from './config/energy'
+import { deriveEnergyIntensityThresholds, getEnergyIntensityColor } from './config/energy'
 import { fetchAllProfiles } from './services/api'
 import type { BuildingProfileMap, BuildingSlug } from './types/energy'
 
@@ -74,7 +74,7 @@ const BUILDINGS: FocusBuilding[] = [
   },
 ]
 
-const PLAY_INTERVAL_MS = 800
+const PLAY_INTERVAL_MS = 180
 
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
@@ -83,7 +83,7 @@ function App() {
 
   const [mode, setMode] = useState<Mode>('reality')
   const [profiles, setProfiles] = useState<BuildingProfileMap | null>(null)
-  const [currentHour, setCurrentHour] = useState(12)
+  const [currentIndex, setCurrentIndex] = useState(48)
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dataError, setDataError] = useState<string | null>(null)
@@ -116,7 +116,7 @@ function App() {
     if (!isPlaying) return
 
     const timer = window.setInterval(() => {
-      setCurrentHour((hour) => (hour + 1) % 24)
+      setCurrentIndex((index) => (index + 1) % 96)
     }, PLAY_INTERVAL_MS)
 
     return () => window.clearInterval(timer)
@@ -247,37 +247,49 @@ function App() {
     if (mode === 'reality') setIsPlaying(false)
   }, [mode])
 
+  const thresholds = useMemo(() => {
+    if (!profiles) return { moderate: 0, high: 0, veryHigh: 0 }
+    return deriveEnergyIntensityThresholds(
+      Object.values(profiles).flatMap((rows) =>
+        rows.map((row) => row.energy_intensity_w_ft2),
+      ),
+    )
+  }, [profiles])
+
   useEffect(() => {
     if (!profiles) return
 
     for (const building of BUILDINGS) {
-      const state = profiles[building.slug][currentHour]
+      const state = profiles[building.slug][currentIndex]
       const entity = energyEntitiesRef.current.get(building.slug)
       const polygon = entity?.polygon
 
       if (!state || !polygon) continue
 
       const color = Color.fromCssColorString(
-        getEnergyIntensityColor(state.energy_intensity_w_ft2),
+        getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds),
       ).withAlpha(0.68)
 
       polygon.material = new ColorMaterialProperty(color)
     }
-  }, [profiles, currentHour])
+  }, [profiles, currentIndex, thresholds])
 
   const currentStates = useMemo(() => {
     if (!profiles) return null
     return BUILDINGS.map((building) => ({
       ...building,
-      state: profiles[building.slug][currentHour],
+      state: profiles[building.slug][currentIndex],
     }))
-  }, [profiles, currentHour])
+  }, [profiles, currentIndex])
 
-  const hourLabel = `${String(currentHour).padStart(2, '0')}:00`
 
-  const stepHour = (delta: number) => {
+  const currentClockHour = Math.floor(currentIndex / 4)
+  const currentMinute = (currentIndex % 4) * 15
+  const timeLabel = `${String(currentClockHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`
+
+  const stepInterval = (delta: number) => {
     setIsPlaying(false)
-    setCurrentHour((hour) => (hour + delta + 24) % 24)
+    setCurrentIndex((index) => (index + delta + 96) % 96)
   }
 
   return (
@@ -316,16 +328,16 @@ function App() {
               <span>Floor Area (ft²)</span>
             </div>
             <div className="legend-scale">
-              <div><span className="swatch low" />LOW &lt; {ENERGY_INTENSITY_THRESHOLDS.moderate}</div>
+              <div><span className="swatch low" />LOW &lt; {thresholds.moderate.toFixed(2)}</div>
               <div><span className="swatch moderate" />MODERATE</div>
               <div><span className="swatch high" />HIGH</div>
-              <div><span className="swatch very-high" />VERY HIGH ≥ {ENERGY_INTENSITY_THRESHOLDS.veryHigh}</div>
+              <div><span className="swatch very-high" />VERY HIGH ≥ {thresholds.veryHigh.toFixed(2)}</div>
             </div>
-            <div className="legend-note">W/ft² · same thresholds for all buildings</div>
+            <div className="legend-note">W/ft² · breaks derived from today's shared distribution</div>
           </aside>
 
           <aside className="hour-metrics" aria-label="Current building metrics">
-            <div className="metrics-time">FRIDAY · {hourLabel}</div>
+            <div className="metrics-time">FRIDAY · {timeLabel}</div>
             {dataError ? (
               <div className="data-error">{dataError}</div>
             ) : !currentStates ? (
@@ -346,7 +358,7 @@ function App() {
           </aside>
 
           <section className="timeline" aria-label="Friday energy timeline">
-            <button type="button" onClick={() => stepHour(-1)} aria-label="Previous hour">
+            <button type="button" onClick={() => stepInterval(-1)} aria-label="Previous 15 minutes">
               ‹
             </button>
             <button
@@ -360,23 +372,23 @@ function App() {
             <div className="timeline-main">
               <div className="timeline-header">
                 <span>00:00</span>
-                <strong>{hourLabel}</strong>
-                <span>23:00</span>
+                <strong>{timeLabel}</strong>
+                <span>23:45</span>
               </div>
               <input
                 type="range"
                 min="0"
-                max="23"
+                max="95"
                 step="1"
-                value={currentHour}
+                value={currentIndex}
                 onChange={(event) => {
                   setIsPlaying(false)
-                  setCurrentHour(Number(event.target.value))
+                  setCurrentIndex(Number(event.target.value))
                 }}
-                aria-label="Hour"
+                aria-label="15-minute interval"
               />
             </div>
-            <button type="button" onClick={() => stepHour(1)} aria-label="Next hour">
+            <button type="button" onClick={() => stepInterval(1)} aria-label="Next 15 minutes">
               ›
             </button>
           </section>
