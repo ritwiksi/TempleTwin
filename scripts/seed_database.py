@@ -11,7 +11,12 @@ BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.buildings import load_buildings
-from app.config.model_parameters import CAMPUS_ELECTRIC_EUI_KWH_FT2, INTERVALS_PER_DAY
+from app.config.model_parameters import (
+    CAMPUS_ELECTRIC_EUI_KWH_FT2,
+    EGRID_RFCE_CO2E_KG_PER_KWH,
+    INTERVAL_MINUTES,
+    INTERVALS_PER_DAY,
+)
 from app.database import get_connection
 from app.services.profile_model import generate_friday_profile
 from app.services.weather_service import (
@@ -162,6 +167,8 @@ def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]
                     + row.other_kw
                 )
                 intensity = demand_kw * 1000.0 / building.floor_area_ft2
+                interval_kwh = demand_kw * (INTERVAL_MINUTES / 60.0)
+                carbon_kg = interval_kwh * EGRID_RFCE_CO2E_KG_PER_KWH
 
                 cur.execute(
                     """
@@ -174,7 +181,7 @@ def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]
                     VALUES (
                         %s, %s, 'baseline',
                         %s, %s, %s, %s,
-                        %s, 0, %s, %s, NULL
+                        %s, 0, %s, %s, %s
                     )
                     """,
                     (
@@ -187,6 +194,7 @@ def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]
                         demand_kw,
                         demand_kw,
                         intensity,
+                        carbon_kg,
                     ),
                 )
     conn.commit()
