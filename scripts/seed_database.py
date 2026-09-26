@@ -18,7 +18,7 @@ from app.config.model_parameters import (
     INTERVALS_PER_DAY,
 )
 from app.database import get_connection
-from app.services.profile_model import generate_friday_profile
+from app.services.profile_model import annual_target_kwh, generate_friday_profile
 from app.services.weather_service import (
     WeatherHour,
     adjust_hvac_kw,
@@ -71,7 +71,7 @@ def upsert_buildings(conn) -> dict[str, int]:
                     building.building_type,
                     building.area_source,
                     building.area_is_estimated,
-                    CAMPUS_ELECTRIC_EUI_KWH_FT2,
+                    annual_target_kwh(building) / building.floor_area_ft2,
                     building.model_notes,
                 ),
             )
@@ -218,18 +218,24 @@ def verify(conn) -> None:
         cur.execute("SELECT COUNT(*) AS weather_count FROM weather_hourly")
         weather_count = cur.fetchone()["weather_count"]
 
-    expected = {"serc", "beury", "engineering"}
-    found = {row["slug"] for row in rows}
-    if found != expected or any(row["row_count"] != INTERVALS_PER_DAY for row in rows):
-        raise RuntimeError(f"Tiger seed verification failed: {rows}")
+    expected = {building.slug for building in load_buildings()}
+    found = {row["slug"] for row in rows if row["slug"] in expected}
+    if found != expected or any(
+        row["row_count"] != INTERVALS_PER_DAY
+        for row in rows
+        if row["slug"] in expected
+    ):
+        raise RuntimeError(
+            f"Tiger seed verification failed: expected {len(expected)} buildings, "
+            f"found {len(found)}"
+        )
     if weather_count != 24:
         raise RuntimeError(f"Expected 24 cached weather rows, got {weather_count}")
 
-    for row in rows:
-        print(
-            f"{row['slug']}: {row['row_count']} 15-minute rows "
-            f"({row['first_ts']} -> {row['last_ts']})"
-        )
+    print(
+        f"profiles: {len(expected)} buildings x {INTERVALS_PER_DAY} "
+        "15-minute rows verified"
+    )
     print(f"weather: {weather_count} hourly rows cached in Tiger")
 
 
