@@ -14,13 +14,6 @@ CAMPUS_ELECTRIC_EUI_KWH_FT2 = (
     * KWH_PER_MMBTU
     / CAMPUS_GROSS_AREA_FT2_FY2025
 )
-
-COMSTOCK_BUILDING_TYPE = {
-    "serc": "largeoffice",
-    "beury": "secondaryschool",
-    "engineering": "mediumoffice",
-}
-
 COMSTOCK_RELEASE = "2021/comstock_amy2018_release_1"
 COMSTOCK_STATE = "PA"
 COMSTOCK_COUNTY_GISJOIN = "g4201010"
@@ -59,7 +52,6 @@ EGRID_RFCE_CO2E_KG_PER_KWH = (
 )
 
 
-# Milestone 8 intervention scenarios.
 # LED: DOE Forrestal Building project reduced lighting energy use by 50%.
 LED_LIGHTING_REDUCTION_FRACTION = 0.50
 
@@ -75,11 +67,3 @@ PV_USABLE_ROOF_FRACTION = 0.60
 PV_MODULE_POWER_DENSITY_KW_M2 = 0.160
 PV_SYSTEM_LOSS_FRACTION = 0.14
 FT2_TO_M2 = 0.09290304
-
-# Approximate roof footprints. SERC uses gross area / 7 floors; Beury and
-# Engineering use the footprint estimates already documented in buildings.csv.
-ROOF_AREA_FT2 = {
-    "serc": 250_000.0 / 7.0,
-    "beury": 38_800.0,
-    "engineering": 33_550.0,
-}
