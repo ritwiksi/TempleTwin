@@ -63,7 +63,7 @@ export function BuildingDetailPanel({
     <div className="detail-panel">
       <div className="detail-head">
         <div>
-          <div className="dock-kicker">BUILDING</div>
+          <div className="dock-kicker">building</div>
           <div className="detail-title">{building.name}</div>
         </div>
         <button className="detail-close" type="button" onClick={onClose} aria-label="Close building details">
@@ -73,7 +73,7 @@ export function BuildingDetailPanel({
 
       <div className="intervention-group" aria-label="Decarbonization interventions">
         <div className="intervention-head">
-          <span>INTERVENTIONS</span>
+          <span>interventions</span>
           {isSimulating && <span className="simulating-copy">Updating…</span>}
         </div>
 
@@ -146,7 +146,7 @@ export function BuildingDetailPanel({
 
       <div className="chart-block">
         <div className="chart-head">
-          <span>24-HOUR LOAD</span>
+          <span>24-hour load</span>
           <span>{String(current.hour).padStart(2, '0')}:{String((currentIndex % 4) * 15).padStart(2, '0')}</span>
         </div>
         <svg className="load-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Friday electricity demand curve">
