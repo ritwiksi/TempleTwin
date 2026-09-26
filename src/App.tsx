@@ -100,6 +100,7 @@ const DEFAULT_INTERVENTIONS: Record<BuildingSlug, InterventionFlags> = {
 
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
+  const viewerInstanceRef = useRef<Viewer | null>(null)
   const realityTilesRef = useRef<Cesium3DTileset | null>(null)
   const energyEntitiesRef = useRef<Map<BuildingSlug, Entity>>(new Map())
 
@@ -119,31 +120,32 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dataError, setDataError] = useState<string | null>(null)
+  const [isDataLoading, setIsDataLoading] = useState(true)
+  const [showMethodology, setShowMethodology] = useState(false)
+
+  const loadTwinData = async () => {
+    setIsDataLoading(true)
+    setDataError(null)
+
+    try {
+      const [profileData, weatherData, buildingData] = await Promise.all([
+        fetchAllProfiles(),
+        fetchWeather(),
+        fetchBuildings(),
+      ])
+      setProfiles(profileData)
+      setWeather(weatherData)
+      setBuildings(buildingData)
+    } catch (err) {
+      console.error('Temple Twin profile fetch failed:', err)
+      setDataError('Energy data could not be loaded from the Temple Twin API.')
+    } finally {
+      setIsDataLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
-
-    Promise.all([fetchAllProfiles(), fetchWeather(), fetchBuildings()])
-      .then(([profileData, weatherData, buildingData]) => {
-        if (!cancelled) {
-          setProfiles(profileData)
-          setWeather(weatherData)
-          setBuildings(buildingData)
-          setDataError(null)
-        }
-      })
-      .catch((err) => {
-        console.error('Temple Twin profile fetch failed:', err)
-        if (!cancelled) {
-          setDataError(
-            'Energy data unavailable. Make sure the FastAPI server is running on port 8000.',
-          )
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
+    void loadTwinData()
   }, [])
 
   useEffect(() => {
@@ -182,6 +184,8 @@ function App() {
       shouldAnimate: true,
     })
 
+    viewerInstanceRef.current = viewer
+
     if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = true
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = false
 
@@ -198,14 +202,14 @@ function App() {
           ),
           label: {
             text: building.name,
-            font: '600 13px Inter, system-ui, sans-serif',
+            font: '650 14px Inter, system-ui, sans-serif',
             fillColor: Color.WHITE,
             outlineColor: Color.fromCssColorString('#0B0D11'),
             outlineWidth: 1,
             style: LabelStyle.FILL_AND_OUTLINE,
             showBackground: true,
-            backgroundColor: Color.fromCssColorString('#111318').withAlpha(0.88),
-            backgroundPadding: new Cartesian2(9, 6),
+            backgroundColor: Color.fromCssColorString('#0F1217').withAlpha(0.92),
+            backgroundPadding: new Cartesian2(10, 6),
             verticalOrigin: VerticalOrigin.BOTTOM,
             pixelOffset: new Cartesian2(0, -10),
             scaleByDistance: new NearFarScalar(250, 1.1, 2500, 0.72),
@@ -281,6 +285,7 @@ function App() {
       disposed = true
       energyEntitiesRef.current.clear()
       if (clickHandler && !clickHandler.isDestroyed()) clickHandler.destroy()
+      viewerInstanceRef.current = null
       if (!viewer.isDestroyed()) viewer.destroy()
     }
   }, [])
@@ -367,6 +372,21 @@ function App() {
     setCurrentIndex((index) => (index + delta + 96) % 96)
   }
 
+  const resetCamera = () => {
+    const viewer = viewerInstanceRef.current
+    if (!viewer) return
+
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(-75.1597, 39.9764, 820),
+      orientation: {
+        heading: CesiumMath.toRadians(34),
+        pitch: CesiumMath.toRadians(-33),
+        roll: 0,
+      },
+      duration: 1.1,
+    })
+  }
+
   const toggleIntervention = async (
     slug: BuildingSlug,
     key: keyof InterventionFlags,
@@ -395,15 +415,15 @@ function App() {
     <main className={`app-shell ${mode === 'energy' ? 'energy-mode' : ''}`}>
       <div ref={viewerRef} className="viewer" />
 
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-dot" />
-          <div>
-            <div className="eyebrow">TEMPLE TWIN</div>
-            <div className="subtitle">Campus Energy Digital Twin</div>
-          </div>
+      <div className="brand-shell">
+        <div className="brand-mark">T</div>
+        <div className="brand-copy">
+          <div className="eyebrow">TEMPLE TWIN</div>
+          <div className="subtitle">Campus Energy Digital Twin</div>
         </div>
+      </div>
 
+      <div className="mode-shell">
         <div className="mode-switch" role="group" aria-label="Visualization mode">
           <button
             type="button"
@@ -420,19 +440,26 @@ function App() {
             Energy
           </button>
         </div>
+      </div>
 
-        <div className="topbar-status">
+      <div className="status-shell">
+        <div className="status-copy">
           {mode === 'energy' && currentWeather ? (
             <>
-              <span>{currentWeather.temperature_f.toFixed(0)}°F</span>
-              <span className="status-dot">·</span>
-              <span>{weatherLabel}</span>
+              <strong>{timeLabel}</strong>
+              <span>{currentWeather.temperature_f.toFixed(0)}°F · {weatherLabel}</span>
             </>
           ) : (
-            <span>Temple University · Philadelphia</span>
+            <>
+              <strong>Main Campus</strong>
+              <span>Philadelphia, PA</span>
+            </>
           )}
         </div>
-      </header>
+        <button className="reset-view-button" type="button" onClick={resetCamera}>
+          Reset view
+        </button>
+      </div>
 
       {mode === 'energy' && (
         <>
@@ -459,9 +486,16 @@ function App() {
                 </div>
 
                 {dataError ? (
-                  <div className="data-error">{dataError}</div>
-                ) : !currentStates ? (
-                  <div className="loading-copy">Loading Tiger-backed profiles…</div>
+                  <div className="data-error-state">
+                    <strong>Energy data unavailable</strong>
+                    <span>{dataError}</span>
+                    <button type="button" onClick={() => void loadTwinData()}>Retry</button>
+                  </div>
+                ) : isDataLoading || !currentStates ? (
+                  <div className="loading-state">
+                    <span className="loading-dot" />
+                    <span>Loading modeled building profiles…</span>
+                  </div>
                 ) : (
                   <div className="building-list">
                     {currentStates.map(({ slug, name, state }) => (
@@ -546,6 +580,28 @@ function App() {
           </section>
         </>
       )}
+
+      <div className="methodology-shell">
+        <button
+          className="methodology-button"
+          type="button"
+          aria-expanded={showMethodology}
+          onClick={() => setShowMethodology((visible) => !visible)}
+        >
+          <span className="methodology-icon">i</span>
+          Modeled estimates
+        </button>
+        {showMethodology && (
+          <div className="methodology-popover">
+            <strong>About the energy model</strong>
+            <p>
+              Building electricity values are modeled estimates, not Temple meter readings.
+              Profiles use Temple public sustainability data, DOE/NREL ComStock, Philadelphia
+              weather, and EPA eGRID carbon intensity.
+            </p>
+          </div>
+        )}
+      </div>
 
       {error && <div className="error-banner">{error}</div>}
     </main>
