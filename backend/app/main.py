@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import check_connection
 from app import repository
+from app.services.intervention_model import apply_interventions
 
 app = FastAPI(
     title="Temple Twin API",
@@ -14,7 +16,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -71,3 +73,32 @@ def weather():
     if not rows:
         raise HTTPException(status_code=404, detail="Weather cache not found")
     return rows
+
+
+class InterventionRequest(BaseModel):
+    led: bool = False
+    hvac: bool = False
+    solar: bool = False
+
+
+@app.post("/api/buildings/{slug}/simulate")
+def simulate(slug: str, request: InterventionRequest):
+    if repository.get_building(slug) is None:
+        raise HTTPException(status_code=404, detail="Building not found")
+
+    profile_rows = repository.get_profile(slug, "baseline")
+    weather_rows = repository.get_weather()
+
+    if not profile_rows:
+        raise HTTPException(status_code=404, detail="Baseline profile not found")
+    if len(weather_rows) != 24:
+        raise HTTPException(status_code=503, detail="Weather cache unavailable")
+
+    return apply_interventions(
+        slug,
+        profile_rows,
+        weather_rows,
+        led=request.led,
+        hvac=request.hvac,
+        solar=request.solar,
+    )
