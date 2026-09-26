@@ -48,7 +48,7 @@ function App() {
     })
 
     viewer.scene.globe.show = false
-    viewer.scene.skyAtmosphere.show = true
+    if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = true
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = false
 
     let disposed = false
