@@ -86,6 +86,16 @@ const BUILDINGS: FocusBuilding[] = [
 
 const PLAY_INTERVAL_MS = 180
 
+function getScadaStatusColor(
+  intensityWPerFt2: number,
+  thresholds: { moderate: number; high: number; veryHigh: number },
+): string {
+  if (intensityWPerFt2 >= thresholds.veryHigh) return '#ff3b30'
+  if (intensityWPerFt2 >= thresholds.high) return '#ff9500'
+  if (intensityWPerFt2 >= thresholds.moderate) return '#ffd60a'
+  return '#34c759'
+}
+
 const EMPTY_INTERVENTIONS: InterventionFlags = {
   led: false,
   hvac: false,
@@ -343,6 +353,16 @@ function App() {
     })
   }, [profiles, scenarioProfiles, currentIndex])
 
+  const rankedCurrentStates = useMemo(() => {
+    if (!currentStates) return null
+    return [...currentStates].sort((a, b) => b.state.demand_kw - a.state.demand_kw)
+  }, [currentStates])
+
+  const maxCurrentDemandKw = useMemo(
+    () => rankedCurrentStates?.[0]?.state.demand_kw ?? 0,
+    [rankedCurrentStates],
+  )
+
   const selectedBuilding = useMemo(
     () => buildings.find((building) => building.slug === selectedSlug) ?? null,
     [buildings, selectedSlug],
@@ -480,9 +500,8 @@ function App() {
                 <div className="dock-head">
                   <div>
                     <div className="dock-kicker">ENERGY OVERVIEW</div>
-                    <div className="dock-title">Campus load</div>
+                    <div className="dock-title">CAMPUS LOAD</div>
                   </div>
-                  <div className="dock-time">{timeLabel}</div>
                 </div>
 
                 {dataError ? (
@@ -491,56 +510,89 @@ function App() {
                     <span>{dataError}</span>
                     <button type="button" onClick={() => void loadTwinData()}>Retry</button>
                   </div>
-                ) : isDataLoading || !currentStates ? (
+                ) : isDataLoading || !rankedCurrentStates ? (
                   <div className="loading-state">
                     <span className="loading-dot" />
                     <span>Loading modeled building profiles…</span>
                   </div>
                 ) : (
-                  <div className="building-list">
-                    {currentStates.map(({ slug, name, state }) => (
-                      <button className="building-row" type="button" key={slug} onClick={() => setSelectedSlug(slug)}>
-                        <div className="building-row-main">
-                          <span
-                            className="building-status"
-                            style={{ background: getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds) }}
-                          />
-                          <div>
-                            <div className="metric-name">{name}</div>
-                            <div className="metric-intensity">
-                              {state.energy_intensity_w_ft2.toFixed(2)} W/ft²
+                  <>
+                    <div className="building-list">
+                      {rankedCurrentStates.map(({ slug, name, state }) => {
+                        const statusColor = getScadaStatusColor(
+                          state.energy_intensity_w_ft2,
+                          thresholds,
+                        )
+                        const loadPercent =
+                          maxCurrentDemandKw > 0
+                            ? (state.demand_kw / maxCurrentDemandKw) * 100
+                            : 0
+
+                        return (
+                          <button
+                            className="building-row"
+                            type="button"
+                            key={slug}
+                            onClick={() => setSelectedSlug(slug)}
+                          >
+                            <div className="building-row-content">
+                              <div className="building-row-main">
+                                <span
+                                  className="building-status"
+                                  style={{ background: statusColor }}
+                                />
+                                <div>
+                                  <div className="metric-name">{name}</div>
+                                  <div className="metric-intensity">
+                                    {state.energy_intensity_w_ft2.toFixed(2)} W/ft²
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="metric-demand">
+                                <strong>{state.demand_kw.toFixed(0)}</strong>
+                                <span> kW</span>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="metric-demand">
-                          {state.demand_kw.toFixed(0)}
-                          <span> kW</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                            <span
+                              className="building-load-track"
+                              aria-hidden="true"
+                            >
+                              <span
+                                className="building-load-fill"
+                                style={{
+                                  width: `${loadPercent}%`,
+                                  background: statusColor,
+                                }}
+                              />
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div className="overview-legend" aria-label="Energy intensity legend">
+                      <div className="overview-divider" />
+                      <div className="legend-title">ENERGY INTENSITY</div>
+                      <div className="legend-ramp" />
+                      <div className="legend-axis">
+                        <span>LOW</span>
+                        <span>MODERATE</span>
+                        <span>HIGH</span>
+                        <span>VERY HIGH</span>
+                      </div>
+                      <div className="legend-values">
+                        <span>&lt; {thresholds.moderate.toFixed(2)}</span>
+                        <span>{thresholds.high.toFixed(2)}</span>
+                        <span>≥ {thresholds.veryHigh.toFixed(2)} W/ft²</span>
+                      </div>
+                      <div className="legend-formula">
+                        demand (W) ÷ floor area (ft²)
+                      </div>
+                    </div>
+                  </>
                 )}
               </>
             )}
-          </aside>
-
-          <aside className="energy-legend" aria-label="Energy intensity legend">
-            <div className="legend-title">Energy intensity</div>
-            <div className="legend-ramp" />
-            <div className="legend-axis">
-              <span>Low</span>
-              <span>Moderate</span>
-              <span>High</span>
-              <span>Very high</span>
-            </div>
-            <div className="legend-values">
-              <span>&lt; {thresholds.moderate.toFixed(2)}</span>
-              <span>{thresholds.high.toFixed(2)}</span>
-              <span>≥ {thresholds.veryHigh.toFixed(2)} W/ft²</span>
-            </div>
-            <div className="legend-formula">
-              demand (W) ÷ floor area (ft²)
-            </div>
           </aside>
 
           <section className="timeline" aria-label="Friday energy timeline">
