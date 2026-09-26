@@ -24,19 +24,31 @@ def pv_capacity_kw(roof_area_ft2: float) -> float:
     return usable_m2 * PV_MODULE_POWER_DENSITY_KW_M2
 
 
-def _hourly_ghi(weather_rows: list[dict[str, Any]]) -> list[float]:
-    if len(weather_rows) != 24:
-        raise ValueError("Expected 24 weather rows")
-    return [max(float(row["ghi_w_m2"] or 0.0), 0.0) for row in weather_rows]
+def _as_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None)
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return parsed.replace(tzinfo=None)
 
 
 def interpolate_ghi(weather_rows: list[dict[str, Any]], timestamp: Any) -> float:
-    ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00")) if isinstance(timestamp, str) else timestamp
-    hourly = _hourly_ghi(weather_rows)
-    current = hourly[ts.hour]
-    if ts.hour == 23:
+    if not weather_rows:
+        raise ValueError("Weather rows are empty")
+
+    ts = _as_datetime(timestamp)
+    first = _as_datetime(weather_rows[0]["timestamp"])
+    hours_from_start = (ts - first).total_seconds() / 3600.0
+    index = int(hours_from_start)
+    fraction = hours_from_start - index
+
+    if index < 0 or index >= len(weather_rows):
+        raise ValueError(f"Timestamp {timestamp} is outside cached weather range")
+
+    current = max(float(weather_rows[index]["ghi_w_m2"] or 0.0), 0.0)
+    if index + 1 >= len(weather_rows):
         return current
-    return current + (hourly[ts.hour + 1] - current) * (ts.minute / 60.0)
+    next_ghi = max(float(weather_rows[index + 1]["ghi_w_m2"] or 0.0), 0.0)
+    return current + (next_ghi - current) * fraction
 
 
 def solar_generation_kw(roof_area_ft2: float, ghi_w_m2: float) -> float:
