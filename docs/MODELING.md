@@ -1,111 +1,100 @@
 # Temple Twin energy modeling — Milestone 3
 
-## Status
+## Important distinction
 
-All building-level electricity values are **MODELED ESTIMATES**, not Temple
-University meter readings.
+Hourly profile **shapes now come from actual NREL ComStock data** downloaded
+from the official OEDI public data lake. The prior hand-written occupancy/load
+schedule generator has been removed.
 
-## Primary source basis
+Building-level Temple electricity values are still **MODELED ESTIMATES**, not
+Temple meter readings.
 
-- Temple University FY2025 Sustainability Action Plan/public sustainability data:
-  campus gross area = 11,122,267 ft²; campus electricity = 612,025 MMBtu.
-- Conversion used by the project: 293.071 kWh/MMBtu.
-- Resulting campus-wide electricity-only calibration anchor: approximately
-  16.1 kWh/ft²/year.
-- Temple public documentation describes SERC as approximately 250,000 ft² and
-  as an education/interdisciplinary research facility with teaching and
-  research laboratories.
-- DOE/NREL ComStock is the intended load-shape source. NREL documents individual
-  and aggregate commercial-building timeseries at 15-minute resolution with
-  separate end-use categories.
+## Actual ComStock source
 
-The campus 16.1 kWh/ft²/year figure is **not** assigned to every building.
+Temple Twin uses the official 2021 ComStock AMY2018 county aggregate release:
 
-## Building table and floor area provenance
+`2021/comstock_amy2018_release_1`
 
-The authoritative/estimated status is stored in
-`backend/app/data/buildings.csv`.
+Geography:
 
-- **SERC:** 250,000 ft², verified from Temple public documentation.
-- **Beury Hall:** estimated for this hackathon model from an approximately
-  38,800 ft² map footprint × 3 floors = 116,400 ft². This must be replaced if
-  an authoritative gross-area source is found.
-- **Engineering Building:** estimated from an approximately 33,550 ft² map
-  footprint × 9 floors = ~302,000 ft². Temple's current directory includes
-  Engineering offices in room 907, which supports the nine-floor assumption.
-  The gross area remains explicitly marked estimated.
+- Pennsylvania
+- Philadelphia County
+- OEDI county GISJOIN: `g4201010`
 
-## Annual magnitude calibration
+The source files are 15-minute aggregate end-use profiles from:
 
-The model uses configurable electricity-only EUIs:
+`timeseries_aggregates/by_county/state=PA/`
 
-| Building | Modeled EUI (kWh/ft²/year) | Rationale |
-|---|---:|---|
-| SERC | 28.0 | research-lab dominant; highest ventilation/process intensity |
-| Beury | 23.0 | mixed lab/classroom/office; elevated process base |
-| Engineering | 17.5 | academic engineering/labs/offices; closer to campus anchor |
+Configured proxies:
 
-These are assumptions, not measured values.
+| Temple building | Actual ComStock building-type profile |
+|---|---|
+| SERC | largeoffice |
+| Beury Hall | secondaryschool |
+| Engineering Building | mediumoffice |
 
-For each building:
+ComStock does not publish a dedicated research-laboratory building type in this
+release. The proxy mapping is therefore a modeling choice, but the underlying
+15-minute load values are actual ComStock outputs rather than invented curves.
 
-`annual_target_kwh = modeled_annual_electric_eui_kwh_ft2 × floor_area_ft2`
+## End-use decomposition from source data
 
-The annual target is decomposed into HVAC, lighting, process, and other
-components. Each component's 8760-hour shape is independently normalized and
-scaled to its component annual target. Therefore the final annual profile sums
-exactly to the building annual target (within floating-point tolerance).
+The loader groups actual ComStock electricity end uses into:
 
-## ComStock processing
+- HVAC: cooling, fans, heat recovery, heat rejection, electric heating, pumps
+- Lighting: interior + exterior lighting
+- Process: interior equipment + refrigeration
+- Other: remaining electricity needed to reconcile with total electricity
 
-`scripts/prepare_comstock.py` is the ingestion utility for a downloaded/exported
-NREL ComStock timeseries. It:
+ComStock publishes timeseries energy values in kWh at 15-minute intervals.
+Temple Twin sums four intervals to an hourly kWh value; for a one-hour interval
+that is numerically equal to average kW.
 
-1. reads subhourly end-use values;
-2. clamps negative input values to zero;
-3. aggregates 15-minute average kW values to hourly mean kW;
-4. retains HVAC, lighting, process, and other separately;
-5. emits normalized hourly end-use shapes.
+The source timestamp marks the end of the 15-minute interval, which the loader
+handles when assigning samples to hours.
 
-NREL's public raw dataset is very large and is hosted in OEDI. The current repo
-does **not** claim that its compact checked-in representative schedule fixture
-is a raw ComStock export. The fixture exists so the pipeline and calibration can
-be implemented/tested without committing enormous source files. Before a final
-scientific presentation, a selected ComStock archetype export can be passed
-through the same processor without changing the model API.
+## Friday extraction
 
-## Representative Friday
+The representative day is Friday, September 14, 2018 from the AMY2018 ComStock
+release. The backend returns exactly 24 ordered rows, 00:00–23:00.
 
-Milestone 3 uses Friday, September 18, 2026 and outputs exactly 24 records,
-00:00–23:00. The representative schedules intentionally differ:
+No synthetic Friday schedule is generated.
 
-- SERC retains the strongest nighttime process/lab base load.
-- Beury retains a substantial lab base but has more daytime modulation.
-- Engineering has the smallest nighttime process base and a stronger
-  daytime academic schedule.
+## Temple calibration
 
-Weather correction is **not** included here; that belongs to Milestone 6.
+The public Temple campus anchor remains:
 
-## End-use decomposition
+- gross area: 11,122,267 ft²
+- electricity: 612,025 MMBtu/year
+- electricity-only campus EUI: about 16.1 kWh/ft²/year
 
-Every hourly state contains:
+SERC's approximately 250,000 ft² area is publicly documented. Beury and
+Engineering floor areas remain explicit estimates until a better authoritative
+source is located.
 
-- `hvac_kw`
-- `lighting_kw`
-- `process_kw`
-- `other_kw`
-- `demand_kw`
+The selected ComStock profile supplies the **shape and component proportions**.
+A single scalar then scales the full annual ComStock electricity profile to the
+building's modeled annual target:
 
-and enforces:
+`annual_target_kwh = modeled_eui_kwh_ft2 × floor_area_ft2`
 
-`demand_kw = hvac_kw + lighting_kw + process_kw + other_kw`
+The current Temple-specific annual EUI values remain model assumptions:
 
-This separation is required so later LED and HVAC interventions affect only
-their appropriate components.
+- SERC: 28.0 kWh/ft²/year
+- Beury: 23.0 kWh/ft²/year
+- Engineering: 17.5 kWh/ft²/year
 
-## Traceability
+So: hourly behavior is ComStock-derived; absolute Temple magnitude is modeled.
 
-All numerical assumptions live in
-`backend/app/config/model_parameters.py`, and area provenance/confidence lives
-in `backend/app/data/buildings.csv`. Tuning constants are not scattered through
-application code.
+## Scientific honesty
+
+Do not describe these profiles as Temple meter readings.
+
+A precise description is:
+
+> "Hourly load shapes and end-use composition are derived from NREL ComStock
+> Philadelphia County simulations and scaled to Temple-specific modeled annual
+> electricity targets."
+
+ComStock itself is a validated simulation dataset, not measured building meter
+data.
