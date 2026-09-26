@@ -1,0 +1,896 @@
+{
+  "status": "ok",
+  "building_count": 50,
+  "reported_electricity_count": 46,
+  "campus_eui_modeled_count": 4,
+  "service_diagnostics": {
+    "TU_Buildings_2026": {
+      "ok": true,
+      "feature_count": 71
+    },
+    "Temple_University_Buildings_2024": {
+      "ok": true,
+      "feature_count": 157
+    },
+    "TU_MainCampus_Buildings": {
+      "ok": true,
+      "feature_count": 180
+    },
+    "TU_Buildings": {
+      "ok": true,
+      "feature_count": 72
+    },
+    "Temple_Buildings_Main_Campus_OWL": {
+      "ok": true,
+      "feature_count": 80
+    }
+  },
+  "service_field_samples": {
+    "TU_Buildings_2026": [
+      "Address",
+      "Bldg_Name",
+      "Bldg_Nmbr",
+      "Campus",
+      "Code",
+      "Date_of_Co",
+      "Date_of_Oc",
+      "FID",
+      "FID_",
+      "Floor",
+      "Gross_Sq_F",
+      "Historic",
+      "Net_Sq_Ft",
+      "Ownership",
+      "Shape__A_1",
+      "Shape__A_2",
+      "Shape__Are",
+      "Shape__Area",
+      "Shape__L_1",
+      "Shape__L_2",
+      "Shape__Len",
+      "Shape__Length",
+      "Use_"
+    ],
+    "Temple_University_Buildings_2024": [
+      "BUILDING_CODE",
+      "BUILDING__",
+      "CAMPUS",
+      "OBJECTID_1",
+      "ObjectID",
+      "PROPERTY_ASSET_ADDRESS",
+      "PROPERTY_ASSET_NAME",
+      "Shape__Area",
+      "Shape__Length"
+    ],
+    "TU_MainCampus_Buildings": [
+      "Address",
+      "Bldg_Name",
+      "Bldg_Nmbr",
+      "Campus",
+      "Code",
+      "Date_of_Co",
+      "Date_of_Oc",
+      "FID",
+      "Floor",
+      "Gross_Sq_F",
+      "Historic",
+      "Net_Sq_Ft",
+      "Ownership",
+      "Shape__Area",
+      "Shape__Length",
+      "Use_",
+      "Z_Value"
+    ],
+    "TU_Buildings": [
+      "Address",
+      "Bldg_Name",
+      "Bldg_Nmbr",
+      "Campus",
+      "Code",
+      "Date_of_Co",
+      "Date_of_Oc",
+      "FID",
+      "FID_",
+      "Floor",
+      "Gross_Sq_F",
+      "Historic",
+      "Net_Sq_Ft",
+      "Ownership",
+      "Shape__A_1",
+      "Shape__Are",
+      "Shape__Area",
+      "Shape__L_1",
+      "Shape__Len",
+      "Shape__Length",
+      "Use_"
+    ],
+    "Temple_Buildings_Main_Campus_OWL": [
+      "BUILDING_C",
+      "FID",
+      "OWNERSHIP",
+      "PROPERTY_1",
+      "PROPERTY_2",
+      "PROPERTY_A",
+      "Shape_Leng",
+      "Shape__Area",
+      "Shape__Length"
+    ]
+  },
+  "benchmark_row_count": 1643,
+  "benchmark_field_sample": [
+    "data_year",
+    "electric_use_kbtu",
+    "num_of_buildings",
+    "primary_prop_type_epa_calc",
+    "property_name",
+    "street_address",
+    "total_floor_area_bld_pk_ft2",
+    "x_lon",
+    "y_lat"
+  ],
+  "rejected_missing_area_count": 94,
+  "rejected_missing_area": [
+    {
+      "name": "Messiah College",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Architecture Building",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "1900-1916  N. Liacouras Walk",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "1926-1938 N. Liacouras Walk",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Baptist Temple - Performing Arts Center (TPAC)",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "1810 Liacouras Walk",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Science, Education & \nResearch Center (SERC)",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Gladfelter Hall",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Mazur Hall",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Standby Elec. Power Gen. Fac.",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Engineering Building",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Biology-Life Sciences",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Student Pavilion",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Facilities Management",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Rock Hall",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Grounds Department Trailer",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Barrack Hall",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Conwell Hall",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Edberg-Olson Hall/Athletic Storage Bldg.",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Beech Building",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Central Heating and Cooling",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Tiny House",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_Buildings_2026",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "067",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "132",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "133",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "064",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "062",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "004",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "061",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "055",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "058",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "031",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "106",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "107",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "063",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "019",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "028",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "057",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "084N",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "161",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "162",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "163",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "156",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "053",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "059",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "068",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "066",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "015",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "022",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "008",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "017",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "016",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "012",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "033",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "285",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "032",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "041",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "043",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "027",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "103",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "139",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "010",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "011",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "013",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "054",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "040",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "295",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "150",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "039",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "025",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "005",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "024",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "014",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "052",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "006",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "200",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "021",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "030",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "003",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "070",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "136",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "038",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "036",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "090",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "135",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "160",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "146",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "147",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "Temple_University_Buildings_2024",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "TUF (Temple University Fitness Center)",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_MainCampus_Buildings",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "The Burk Mansion",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_MainCampus_Buildings",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "The Burk Mansion (Rear)",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_MainCampus_Buildings",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Edward H. Rosen Hillel Center for Jewish Life",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_MainCampus_Buildings",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Newman Center",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_MainCampus_Buildings",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "The View at Montgomery",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_MainCampus_Buildings",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    }
+  ],
+  "sources": {
+    "geometry_and_facility_attributes": [
+      "https://services.arcgis.com/6fiE7QkLWSPMd0N5/ArcGIS/rest/services/TU_Buildings_2026/FeatureServer",
+      "https://services.arcgis.com/6fiE7QkLWSPMd0N5/ArcGIS/rest/services/Temple_University_Buildings_2024/FeatureServer",
+      "https://services.arcgis.com/6fiE7QkLWSPMd0N5/ArcGIS/rest/services/TU_MainCampus_Buildings/FeatureServer",
+      "https://services.arcgis.com/6fiE7QkLWSPMd0N5/ArcGIS/rest/services/TU_Buildings/FeatureServer",
+      "https://services.arcgis.com/6fiE7QkLWSPMd0N5/ArcGIS/rest/services/Temple_Buildings_Main_Campus_OWL/FeatureServer"
+    ],
+    "energy_benchmarking": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/properties_reported_2024/FeatureServer/0/query"
+  }
+}
