@@ -1,4 +1,4 @@
-import type { BuildingProfileMap, BuildingSlug, EnergyState } from '../types/energy'
+import type { BuildingProfileMap, BuildingSlug, EnergyState, WeatherHour } from '../types/energy'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
@@ -25,4 +25,17 @@ export async function fetchAllProfiles(): Promise<BuildingProfileMap> {
     fetchProfile('engineering'),
   ])
   return { serc, beury, engineering }
+}
+
+
+export async function fetchWeather(): Promise<WeatherHour[]> {
+  const response = await fetch(`${API_BASE_URL}/api/weather`)
+  if (!response.ok) {
+    throw new Error(`Weather request failed: ${response.status}`)
+  }
+  const rows = (await response.json()) as WeatherHour[]
+  if (rows.length !== 24) {
+    throw new Error(`Expected 24 cached weather rows, received ${rows.length}`)
+  }
+  return rows
 }
