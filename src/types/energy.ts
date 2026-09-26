@@ -27,3 +27,19 @@ export type WeatherHour = {
   weather_code: number
   source: string
 }
+
+
+export type BuildingMetadata = {
+  id: number
+  slug: BuildingSlug
+  name: string
+  floor_area_ft2: number
+  latitude: number
+  longitude: number
+  approx_height_m: number
+  building_type: string
+  area_source: string
+  area_is_estimated: boolean
+  modeled_annual_eui_kwh_ft2: number
+  model_notes: string
+}
