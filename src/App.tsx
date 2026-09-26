@@ -33,67 +33,16 @@ import type {
 
 type Mode = 'reality' | 'energy'
 
-type FocusBuilding = {
-  slug: BuildingSlug
-  name: string
-  longitude: number
-  latitude: number
-  height: number
-  footprint: number[]
-}
-
-const BUILDINGS: FocusBuilding[] = [
-  {
-    slug: 'serc',
-    name: 'SERC',
-    longitude: -75.15304,
-    latitude: 39.98198,
-    height: 43,
-    footprint: [
-      -75.15342, 39.98166,
-      -75.15268, 39.98166,
-      -75.15268, 39.98228,
-      -75.15342, 39.98228,
-    ],
-  },
-  {
-    slug: 'beury',
-    name: 'Beury Hall',
-    longitude: -75.15449,
-    latitude: 39.98210,
-    height: 34,
-    footprint: [
-      -75.15486, 39.98184,
-      -75.15413, 39.98184,
-      -75.15413, 39.98236,
-      -75.15486, 39.98236,
-    ],
-  },
-  {
-    slug: 'engineering',
-    name: 'Engineering Building',
-    longitude: -75.15283,
-    latitude: 39.98257,
-    height: 28,
-    footprint: [
-      -75.15316, 39.98233,
-      -75.15249, 39.98233,
-      -75.15249, 39.98282,
-      -75.15316, 39.98282,
-    ],
-  },
-]
-
 const PLAY_INTERVAL_MS = 180
 
-function getScadaStatusColor(
+function getStatusColor(
   intensityWPerFt2: number,
   thresholds: { moderate: number; high: number; veryHigh: number },
 ): string {
-  if (intensityWPerFt2 >= thresholds.veryHigh) return '#ff3b30'
-  if (intensityWPerFt2 >= thresholds.high) return '#ff9500'
-  if (intensityWPerFt2 >= thresholds.moderate) return '#ffd60a'
-  return '#34c759'
+  if (intensityWPerFt2 >= thresholds.veryHigh) return '#d56565'
+  if (intensityWPerFt2 >= thresholds.high) return '#cf8a58'
+  if (intensityWPerFt2 >= thresholds.moderate) return '#d2b25e'
+  return '#6fbd87'
 }
 
 const EMPTY_INTERVENTIONS: InterventionFlags = {
@@ -102,18 +51,15 @@ const EMPTY_INTERVENTIONS: InterventionFlags = {
   solar: false,
 }
 
-const DEFAULT_INTERVENTIONS: Record<BuildingSlug, InterventionFlags> = {
-  serc: { ...EMPTY_INTERVENTIONS },
-  beury: { ...EMPTY_INTERVENTIONS },
-  engineering: { ...EMPTY_INTERVENTIONS },
-}
-
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const viewerInstanceRef = useRef<Viewer | null>(null)
   const realityTilesRef = useRef<Cesium3DTileset | null>(null)
   const energyEntitiesRef = useRef<Map<BuildingSlug, Entity>>(new Map())
+  const labelEntitiesRef = useRef<Entity[]>([])
+  const modeRef = useRef<Mode>('reality')
 
+  const [viewerReady, setViewerReady] = useState(false)
   const [mode, setMode] = useState<Mode>('reality')
   const [profiles, setProfiles] = useState<BuildingProfileMap | null>(null)
   const [scenarioProfiles, setScenarioProfiles] = useState<
@@ -121,7 +67,7 @@ function App() {
   >({})
   const [interventions, setInterventions] = useState<
     Record<BuildingSlug, InterventionFlags>
-  >(DEFAULT_INTERVENTIONS)
+  >({})
   const [isSimulating, setIsSimulating] = useState(false)
   const [buildings, setBuildings] = useState<BuildingMetadata[]>([])
   const [weather, setWeather] = useState<WeatherHour[] | null>(null)
@@ -136,7 +82,6 @@ function App() {
   const loadTwinData = async () => {
     setIsDataLoading(true)
     setDataError(null)
-
     try {
       const [profileData, weatherData, buildingData] = await Promise.all([
         fetchAllProfiles(),
@@ -147,7 +92,7 @@ function App() {
       setWeather(weatherData)
       setBuildings(buildingData)
     } catch (err) {
-      console.error('Temple Twin profile fetch failed:', err)
+      console.error('Temple Twin data fetch failed:', err)
       setDataError('Energy data could not be loaded from the Temple Twin API.')
     } finally {
       setIsDataLoading(false)
@@ -160,11 +105,9 @@ function App() {
 
   useEffect(() => {
     if (!isPlaying) return
-
     const timer = window.setInterval(() => {
       setCurrentIndex((index) => (index + 1) % 96)
     }, PLAY_INTERVAL_MS)
-
     return () => window.clearInterval(timer)
   }, [isPlaying])
 
@@ -195,61 +138,20 @@ function App() {
     })
 
     viewerInstanceRef.current = viewer
+    setViewerReady(true)
 
     if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = true
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = false
 
     let disposed = false
-    let clickHandler: ScreenSpaceEventHandler | null = null
-
-    const addPermanentLabels = () => {
-      for (const building of BUILDINGS) {
-        viewer.entities.add({
-          position: Cartesian3.fromDegrees(
-            building.longitude,
-            building.latitude,
-            building.height + 3,
-          ),
-          label: {
-            text: building.name,
-            font: "600 15px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-            fillColor: Color.fromCssColorString('#244236'),
-            outlineColor: Color.fromCssColorString('#F7F8F4'),
-            outlineWidth: 1,
-            style: LabelStyle.FILL_AND_OUTLINE,
-            showBackground: true,
-            backgroundColor: Color.fromCssColorString('#F7F8F4').withAlpha(0.98),
-            backgroundPadding: new Cartesian2(10, 7),
-            verticalOrigin: VerticalOrigin.BOTTOM,
-            pixelOffset: new Cartesian2(0, -10),
-            scaleByDistance: new NearFarScalar(300, 1.0, 2200, 0.9),
-            translucencyByDistance: new NearFarScalar(1800, 1, 5500, 0),
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-          },
-        })
+    const clickHandler = new ScreenSpaceEventHandler(viewer.scene.canvas)
+    clickHandler.setInputAction((movement: { position: Cartesian2 }) => {
+      const picked = viewer.scene.pick(movement.position)
+      const entityId = picked?.id?.id
+      if (typeof entityId === 'string' && entityId.startsWith('energy-')) {
+        setSelectedSlug(entityId.replace('energy-', ''))
       }
-    }
-
-    const addEnergyHighlights = () => {
-      for (const building of BUILDINGS) {
-        const entity = viewer.entities.add({
-          id: `energy-${building.slug}`,
-          name: building.name,
-          show: false,
-          polygon: {
-            hierarchy: new PolygonHierarchy(
-              Cartesian3.fromDegreesArray(building.footprint),
-            ),
-            material: new ColorMaterialProperty(
-              Color.fromCssColorString('#22c55e').withAlpha(0.62),
-            ),
-            classificationType: ClassificationType.CESIUM_3D_TILE,
-          },
-        })
-
-        energyEntitiesRef.current.set(building.slug, entity)
-      }
-    }
+    }, ScreenSpaceEventType.LEFT_CLICK)
 
     const initialize = async () => {
       try {
@@ -257,35 +159,25 @@ function App() {
           onlyUsingWithGoogleGeocoder: true,
         })
         if (disposed) return
-
         realityTilesRef.current = realityTiles
         viewer.scene.primitives.add(realityTiles)
+        setError(null)
+      } catch (err) {
+        console.error('Temple Twin Cesium tiles failed:', err)
+        const detail = err instanceof Error ? err.message : String(err)
+        setError(`Reality mode unavailable: ${detail}`)
+      }
 
-        addEnergyHighlights()
-        addPermanentLabels()
-
-        clickHandler = new ScreenSpaceEventHandler(viewer.scene.canvas)
-        clickHandler.setInputAction((movement: { position: Cartesian2 }) => {
-          const picked = viewer.scene.pick(movement.position)
-          const entityId = picked?.id?.id
-          if (typeof entityId === 'string' && entityId.startsWith('energy-')) {
-            setSelectedSlug(entityId.replace('energy-', '') as BuildingSlug)
-          }
-        }, ScreenSpaceEventType.LEFT_CLICK)
-
+      if (!disposed) {
         viewer.camera.flyTo({
-          destination: Cartesian3.fromDegrees(-75.1597, 39.9764, 820),
+          destination: Cartesian3.fromDegrees(-75.1562, 39.9805, 1050),
           orientation: {
-            heading: CesiumMath.toRadians(34),
-            pitch: CesiumMath.toRadians(-33),
+            heading: CesiumMath.toRadians(28),
+            pitch: CesiumMath.toRadians(-39),
             roll: 0,
           },
-          duration: 3.4,
+          duration: 3.0,
         })
-      } catch (err) {
-        console.error('Temple Twin Cesium initialization failed:', err)
-        const detail = err instanceof Error ? err.message : String(err)
-        setError(`Campus view failed: ${detail}`)
       }
     }
 
@@ -293,21 +185,91 @@ function App() {
 
     return () => {
       disposed = true
+      setViewerReady(false)
       energyEntitiesRef.current.clear()
-      if (clickHandler && !clickHandler.isDestroyed()) clickHandler.destroy()
+      labelEntitiesRef.current = []
+      if (!clickHandler.isDestroyed()) clickHandler.destroy()
       viewerInstanceRef.current = null
       if (!viewer.isDestroyed()) viewer.destroy()
     }
   }, [])
 
   useEffect(() => {
-    if (realityTilesRef.current) realityTilesRef.current.show = true
+    const viewer = viewerInstanceRef.current
+    if (!viewer || !viewerReady || buildings.length === 0) return
 
+    for (const entity of energyEntitiesRef.current.values()) {
+      viewer.entities.remove(entity)
+    }
+    for (const entity of labelEntitiesRef.current) {
+      viewer.entities.remove(entity)
+    }
+    energyEntitiesRef.current.clear()
+    labelEntitiesRef.current = []
+
+    for (const building of buildings) {
+      const polygon = viewer.entities.add({
+        id: `energy-${building.slug}`,
+        name: building.name,
+        show: modeRef.current === 'energy',
+        polygon: {
+          hierarchy: new PolygonHierarchy(
+            Cartesian3.fromDegreesArray(building.footprint),
+          ),
+          material: new ColorMaterialProperty(
+            Color.fromCssColorString('#6fbd87').withAlpha(0.62),
+          ),
+          classificationType: ClassificationType.CESIUM_3D_TILE,
+        },
+      })
+      energyEntitiesRef.current.set(building.slug, polygon)
+
+      const label = viewer.entities.add({
+        id: `label-${building.slug}`,
+        position: Cartesian3.fromDegrees(
+          building.longitude,
+          building.latitude,
+          building.approx_height_m + 3,
+        ),
+        label: {
+          text: building.name.replace(/\s+/g, ' ').trim(),
+          font: "600 15px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+          fillColor: Color.fromCssColorString('#244236'),
+          outlineColor: Color.fromCssColorString('#F7F8F4'),
+          outlineWidth: 1,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          showBackground: true,
+          backgroundColor: Color.fromCssColorString('#F7F8F4').withAlpha(0.98),
+          backgroundPadding: new Cartesian2(9, 6),
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          pixelOffset: new Cartesian2(0, -8),
+          scaleByDistance: new NearFarScalar(250, 0.95, 2200, 0.62),
+          translucencyByDistance: new NearFarScalar(1350, 1, 3600, 0),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+      })
+      labelEntitiesRef.current.push(label)
+    }
+
+    return () => {
+      if (viewer.isDestroyed()) return
+      for (const entity of energyEntitiesRef.current.values()) {
+        viewer.entities.remove(entity)
+      }
+      for (const entity of labelEntitiesRef.current) {
+        viewer.entities.remove(entity)
+      }
+      energyEntitiesRef.current.clear()
+      labelEntitiesRef.current = []
+    }
+  }, [buildings, viewerReady])
+
+  useEffect(() => {
+    modeRef.current = mode
     const showEnergy = mode === 'energy'
     for (const entity of energyEntitiesRef.current.values()) {
       entity.show = showEnergy
     }
-
     if (mode === 'reality') {
       setIsPlaying(false)
       setSelectedSlug(null)
@@ -325,49 +287,48 @@ function App() {
 
   useEffect(() => {
     if (!profiles) return
-
-    for (const building of BUILDINGS) {
+    for (const building of buildings) {
       const activeProfile = scenarioProfiles[building.slug] ?? profiles[building.slug]
-      const state = activeProfile[currentIndex]
-      const entity = energyEntitiesRef.current.get(building.slug)
-      const polygon = entity?.polygon
-
+      const state = activeProfile?.[currentIndex]
+      const polygon = energyEntitiesRef.current.get(building.slug)?.polygon
       if (!state || !polygon) continue
 
-      const color = Color.fromCssColorString(
-        getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds),
-      ).withAlpha(0.68)
-
-      polygon.material = new ColorMaterialProperty(color)
+      polygon.material = new ColorMaterialProperty(
+        Color.fromCssColorString(
+          getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds),
+        ).withAlpha(0.68),
+      )
     }
-  }, [profiles, scenarioProfiles, currentIndex, thresholds])
+  }, [buildings, profiles, scenarioProfiles, currentIndex, thresholds])
 
   const currentStates = useMemo(() => {
     if (!profiles) return null
-    return BUILDINGS.map((building) => {
+    return buildings.flatMap((building) => {
       const activeProfile = scenarioProfiles[building.slug] ?? profiles[building.slug]
-      return {
-        ...building,
-        state: activeProfile[currentIndex],
-      }
+      const state = activeProfile?.[currentIndex]
+      return state ? [{ ...building, state }] : []
     })
-  }, [profiles, scenarioProfiles, currentIndex])
+  }, [buildings, profiles, scenarioProfiles, currentIndex])
 
-  const rankedCurrentStates = useMemo(() => {
-    if (!currentStates) return null
-    return [...currentStates].sort((a, b) => b.state.demand_kw - a.state.demand_kw)
-  }, [currentStates])
-
-  const maxCurrentDemandKw = useMemo(
-    () => rankedCurrentStates?.[0]?.state.demand_kw ?? 0,
-    [rankedCurrentStates],
+  const rankedCurrentStates = useMemo(
+    () =>
+      currentStates
+        ? [...currentStates].sort((a, b) => b.state.demand_kw - a.state.demand_kw)
+        : null,
+    [currentStates],
   )
+
+  const maxCurrentDemandKw = rankedCurrentStates?.[0]?.state.demand_kw ?? 0
 
   const selectedBuilding = useMemo(
     () => buildings.find((building) => building.slug === selectedSlug) ?? null,
     [buildings, selectedSlug],
   )
 
+  const reportedElectricityCount = useMemo(
+    () => buildings.filter((b) => b.data_confidence === 'reported-electricity').length,
+    [buildings],
+  )
 
   const currentClockHour = Math.floor(currentIndex / 4)
   const currentMinute = (currentIndex % 4) * 15
@@ -395,12 +356,11 @@ function App() {
   const resetCamera = () => {
     const viewer = viewerInstanceRef.current
     if (!viewer) return
-
     viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(-75.1597, 39.9764, 820),
+      destination: Cartesian3.fromDegrees(-75.1562, 39.9805, 1050),
       orientation: {
-        heading: CesiumMath.toRadians(34),
-        pitch: CesiumMath.toRadians(-33),
+        heading: CesiumMath.toRadians(28),
+        pitch: CesiumMath.toRadians(-39),
         roll: 0,
       },
       duration: 1.1,
@@ -411,14 +371,11 @@ function App() {
     slug: BuildingSlug,
     key: keyof InterventionFlags,
   ) => {
-    const nextFlags = {
-      ...interventions[slug],
-      [key]: !interventions[slug][key],
-    }
+    const currentFlags = interventions[slug] ?? EMPTY_INTERVENTIONS
+    const nextFlags = { ...currentFlags, [key]: !currentFlags[key] }
 
     setIsSimulating(true)
     setDataError(null)
-
     try {
       const simulated = await simulateInterventions(slug, nextFlags)
       setInterventions((current) => ({ ...current, [slug]: nextFlags }))
@@ -431,15 +388,21 @@ function App() {
     }
   }
 
+  const selectedProfile =
+    selectedBuilding && profiles
+      ? scenarioProfiles[selectedBuilding.slug] ?? profiles[selectedBuilding.slug]
+      : null
+
   return (
     <main className={`app-shell ${mode === 'energy' ? 'energy-mode' : ''}`}>
       <div ref={viewerRef} className="viewer" />
 
       <div className="brand-shell">
-        <div className="brand-mark">T</div>
         <div className="brand-copy">
           <div className="eyebrow">TEMPLE TWIN</div>
-          <div className="subtitle">Campus energy digital twin</div>
+          <div className="subtitle">
+            {buildings.length ? `${buildings.length}-building campus energy twin` : 'Campus energy digital twin'}
+          </div>
         </div>
       </div>
 
@@ -483,14 +446,17 @@ function App() {
 
       {mode === 'energy' && (
         <>
-          <aside className={`energy-dock ${selectedBuilding ? 'detail-open' : ''}`} aria-label="Building energy panel">
-            {selectedBuilding && profiles ? (
+          <aside
+            className={`energy-dock ${selectedBuilding ? 'detail-open' : ''}`}
+            aria-label="Building energy panel"
+          >
+            {selectedBuilding && profiles && selectedProfile ? (
               <BuildingDetailPanel
                 building={selectedBuilding}
                 baselineProfile={profiles[selectedBuilding.slug]}
-                profile={scenarioProfiles[selectedBuilding.slug] ?? profiles[selectedBuilding.slug]}
+                profile={selectedProfile}
                 currentIndex={currentIndex}
-                interventions={interventions[selectedBuilding.slug]}
+                interventions={interventions[selectedBuilding.slug] ?? EMPTY_INTERVENTIONS}
                 isSimulating={isSimulating}
                 onToggle={(key) => void toggleIntervention(selectedBuilding.slug, key)}
                 onClose={() => setSelectedSlug(null)}
@@ -500,7 +466,7 @@ function App() {
                 <div className="dock-head">
                   <div>
                     <div className="dock-kicker">energy overview</div>
-                    <div className="dock-title">Campus load</div>
+                    <div className="dock-title">Campus load · {buildings.length} buildings</div>
                   </div>
                 </div>
 
@@ -513,13 +479,13 @@ function App() {
                 ) : isDataLoading || !rankedCurrentStates ? (
                   <div className="loading-state">
                     <span className="loading-dot" />
-                    <span>Loading modeled building profiles…</span>
+                    <span>Loading campus profiles…</span>
                   </div>
                 ) : (
                   <>
                     <div className="building-list">
                       {rankedCurrentStates.map(({ slug, name, state }) => {
-                        const statusColor = getScadaStatusColor(
+                        const statusColor = getStatusColor(
                           state.energy_intensity_w_ft2,
                           thresholds,
                         )
@@ -553,16 +519,10 @@ function App() {
                                 <span> kW</span>
                               </div>
                             </div>
-                            <span
-                              className="building-load-track"
-                              aria-hidden="true"
-                            >
+                            <span className="building-load-track" aria-hidden="true">
                               <span
                                 className="building-load-fill"
-                                style={{
-                                  width: `${loadPercent}%`,
-                                  background: statusColor,
-                                }}
+                                style={{ width: `${loadPercent}%`, background: statusColor }}
                               />
                             </span>
                           </button>
@@ -596,14 +556,13 @@ function App() {
           </aside>
 
           <section className="timeline" aria-label="Friday energy timeline">
-            <button className="icon-button" type="button" onClick={() => stepInterval(-1)} aria-label="Previous 15 minutes">
-              ‹
-            </button>
+            <button className="icon-button" type="button" onClick={() => stepInterval(-1)} aria-label="Previous 15 minutes">‹</button>
             <button
               type="button"
               className="play-button"
               onClick={() => setIsPlaying((playing) => !playing)}
               disabled={!profiles}
+              aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? '❚❚' : '▶'}
             </button>
@@ -626,9 +585,7 @@ function App() {
                 aria-label="15-minute interval"
               />
             </div>
-            <button className="icon-button" type="button" onClick={() => stepInterval(1)} aria-label="Next 15 minutes">
-              ›
-            </button>
+            <button className="icon-button" type="button" onClick={() => stepInterval(1)} aria-label="Next 15 minutes">›</button>
           </section>
         </>
       )}
@@ -640,16 +597,17 @@ function App() {
           aria-expanded={showMethodology}
           onClick={() => setShowMethodology((visible) => !visible)}
         >
-          <span className="methodology-icon">i</span>
           Modeled estimates
         </button>
         {showMethodology && (
           <div className="methodology-popover">
             <strong>About the energy model</strong>
             <p>
-              Building electricity values are modeled estimates, not Temple meter readings.
-              Profiles use Temple public sustainability data, DOE/NREL ComStock, Philadelphia
-              weather, and EPA eGRID carbon intensity.
+              All {buildings.length || 50} buildings use Temple GIS floor area and
+              real campus geometry. {reportedElectricityCount} annual electricity
+              totals are matched to Philadelphia 2024 benchmarking; the remainder
+              use Temple FY2025 campus EUI calibration. Every 15-minute profile uses
+              NREL ComStock, historical Philadelphia weather, and EPA eGRID carbon.
             </p>
           </div>
         )}
