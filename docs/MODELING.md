@@ -1,86 +1,71 @@
 # Temple Twin energy modeling
 
-## Current data path
+## Campus data
 
-The temporal load behavior is taken from official NREL/OEDI ComStock
-Philadelphia County files at their native **15-minute resolution**. Temple Twin
-does not generate synthetic day/night schedules.
+Temple Twin currently models 50 distinct Main Campus buildings.
+
+For every included building:
+
+- geometry comes from Temple University ArcGIS building services;
+- gross/floor area is authoritative source data, not a hand-estimated area;
+- Philadelphia 2024 Building Energy Benchmarking is used when an unambiguous building-level annual electricity match exists;
+- otherwise annual electricity is calibrated from Temple's FY2025 campus-wide electricity EUI.
+
+The sync pipeline refuses to include a building that lacks an authoritative floor-area input.
+
+## Load-shape model
+
+The temporal load behavior comes from official NREL/OEDI ComStock Philadelphia County files at their native **15-minute resolution**.
 
 For every 15-minute interval the model retains:
 
-- HVAC electricity
-- lighting electricity
-- process/equipment electricity
-- other electricity
-- total demand
+- HVAC electricity;
+- lighting electricity;
+- process/equipment electricity;
+- other electricity;
+- total demand.
 
-The Friday API/UI therefore uses **96 states per building**, from 00:00 through
-23:45.
+ComStock annual profiles are first scaled so annual energy equals the building's annual target.
 
-## Absolute magnitude calibration
+## Annual calibration
 
-The earlier hand-picked building EUIs (28 / 23 / 17.5 kWh/ft²/year) have been
-removed.
+For a building with reported Philadelphia benchmarking electricity:
 
-Until building-specific annual Temple electricity data or a separately
-calibrated physics model is available, all three buildings use the same public
-Temple campus-wide electricity-only calibration anchor:
+`annual_target_kwh = reported_annual_electricity_kwh`
 
-- Temple gross area: 11,122,267 ft²
-- Temple electricity: 612,025 MMBtu/year
-- conversion: 293.071 kWh/MMBtu
-- campus electricity EUI: approximately 16.1 kWh/ft²/year
+Otherwise:
 
-For each building:
+`annual_target_kwh = Temple_FY2025_campus_electric_EUI × building_floor_area_ft2`
 
-`annual_target_kwh = campus_electric_eui × building_floor_area_ft2`
+The campus calibration anchor is:
 
-This intentionally does **not** invent a higher annual EUI for a lab building.
-Different 15-minute behavior still comes from the selected ComStock temporal
-profile, but the annual magnitude is neutral until stronger building-specific
-evidence is available.
+- Temple gross area: 11,122,267 ft²;
+- Temple electricity: 612,025 MMBtu/year;
+- conversion: 293.071 kWh/MMBtu;
+- campus electricity EUI: approximately 16.1 kWh/ft²/year.
 
-## Building area status
+## Interactive scenario day
 
-- SERC: approximately 250,000 ft² from Temple public documentation.
-- Beury Hall: area remains explicitly estimated.
-- Engineering Building: area remains explicitly estimated.
+The underlying ComStock profile is annual, but the current interactive API/Tiger/UI exposes one historical Friday:
 
-Those estimates remain the largest non-public inputs in the magnitude
-calculation and must not be described as measured floor areas.
+**September 14, 2018**
 
-## Color thresholds
+That produces **96 states per building**, from 00:00 through 23:45.
 
-The prior fixed hand-picked thresholds were removed. The frontend computes one
-shared set of quartile breaks from all three buildings' 96 Friday intensity
-values. Every building at every timestamp is compared against the same breaks.
+Historical Open-Meteo weather is also loaded only for that date. Weather modifies HVAC through the bounded weather-response model, and the same day's irradiance is used for the rooftop-solar scenario.
 
-This is a visualization classification, not an energy measurement.
+So the current app is **annual-calibrated but single-day interactive**, not yet a year-round weather/time explorer.
+
+## Energy intensity and color
+
+At each interval:
+
+`energy_intensity_w_ft2 = demand_kw × 1000 / floor_area_ft2`
+
+The frontend derives shared intensity thresholds across the campus profile and applies the same scale to every building.
 
 ## Scientific wording
 
 Accurate description:
 
-> Temple Twin uses NREL ComStock 15-minute simulated end-use load shapes for
-> Philadelphia County and scales them to Temple's published campus-wide
-> electricity intensity. Building-level values are modeled estimates, not
-> Temple meter readings.
-
-## Alternatives under evaluation
-
-ComStock is not the only option.
-
-- Building Data Genome 2 provides real measured hourly whole-building meter
-  data across more than 1,600 non-residential buildings. It is attractive for
-  empirical load-shape validation, but buildings are anonymized and it lacks
-  ComStock-style 15-minute end-use decomposition.
-- DOE/PNNL Commercial Prototype Buildings and EnergyPlus provide physics-based
-  whole-building simulation models. A custom EnergyPlus model could ultimately
-  represent laboratory ventilation/process loads more explicitly, but it would
-  require substantial building-specific geometry, schedules, systems, and
-  calibration inputs.
-- LBNL CityBES/CBES also uses physics-based building-energy simulation for
-  building/city-scale analysis and is another possible future validation route.
-
-The current application keeps its building-type mapping internal while this
-modeling choice is evaluated.
+> Temple Twin uses NREL ComStock 15-minute simulated end-use load shapes for Philadelphia County, scales them to building-level reported electricity where available or Temple's published campus electricity intensity otherwise, and applies historical weather for the interactive scenario day. Building-level interval values are modeled, not Temple smart-meter readings.
