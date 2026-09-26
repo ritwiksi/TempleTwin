@@ -1,4 +1,4 @@
-import type { BuildingMetadata, BuildingProfileMap, BuildingSlug, EnergyState, WeatherHour } from '../types/energy'
+import type { BuildingMetadata, BuildingProfileMap, BuildingSlug, EnergyState, InterventionFlags, WeatherHour } from '../types/energy'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
@@ -47,4 +47,26 @@ export async function fetchBuildings(): Promise<BuildingMetadata[]> {
     throw new Error(`Buildings request failed: ${response.status}`)
   }
   return (await response.json()) as BuildingMetadata[]
+}
+
+
+export async function simulateInterventions(
+  slug: BuildingSlug,
+  interventions: InterventionFlags,
+): Promise<EnergyState[]> {
+  const response = await fetch(`${API_BASE_URL}/api/buildings/${slug}/simulate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(interventions),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Simulation request failed for ${slug}: ${response.status}`)
+  }
+
+  const rows = (await response.json()) as EnergyState[]
+  if (rows.length !== 96) {
+    throw new Error(`Expected 96 simulated rows for ${slug}, received ${rows.length}`)
+  }
+  return rows
 }
