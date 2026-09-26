@@ -1,12 +1,22 @@
 # Temple Twin
 
-Milestone 1: a CesiumJS 3D proof of concept for Temple University's Main Campus.
+Temple Twin is a 3D campus energy digital twin for Temple University's Main Campus.
 
-## Setup
+It combines Temple GIS building geometry and floor-area metadata, Philadelphia building energy benchmarking where available, NREL ComStock 15-minute load shapes, historical weather, and EPA eGRID carbon intensity.
+
+## Local setup
 
 1. Copy `.env.example` to `.env`.
-2. Create a Cesium ion access token and set `VITE_CESIUM_ION_TOKEN`.
-3. Install dependencies with `npm install`.
-4. Run `npm run dev`.
+2. Set `VITE_CESIUM_ION_TOKEN` and `DATABASE_URL`.
+3. Install frontend dependencies with `npm install`.
+4. Install backend dependencies with `python -m pip install -r backend/requirements.txt`.
+5. Seed Tiger with `python scripts/seed_database.py`.
+6. Run the backend from `backend/`:
 
-The app opens directly into Reality Mode using Google Photorealistic 3D Tiles and permanently labels SERC, Beury Hall, and the Engineering Building.
+   ```bash
+   python -m uvicorn app.main:app --reload --port 8000
+   ```
+
+7. In a second terminal, run `npm run dev`.
+
+The current campus inventory contains 50 distinct Temple buildings with authoritative GIS geometry and floor area.
