@@ -13,6 +13,7 @@ import {
   LabelStyle,
   Math as CesiumMath,
   NearFarScalar,
+  DistanceDisplayCondition,
   PolygonHierarchy,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
@@ -244,8 +245,9 @@ function App() {
           backgroundPadding: new Cartesian2(9, 6),
           verticalOrigin: VerticalOrigin.BOTTOM,
           pixelOffset: new Cartesian2(0, -8),
-          scaleByDistance: new NearFarScalar(250, 0.95, 2200, 0.62),
-          translucencyByDistance: new NearFarScalar(1350, 1, 3600, 0),
+          scaleByDistance: new NearFarScalar(180, 1.0, 850, 0.82),
+          translucencyByDistance: new NearFarScalar(480, 1, 820, 0),
+          distanceDisplayCondition: new DistanceDisplayCondition(0, 850),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       })
@@ -288,19 +290,35 @@ function App() {
 
   useEffect(() => {
     if (!profiles) return
+    const viewer = viewerInstanceRef.current
+
     for (const building of buildings) {
       const activeProfile = scenarioProfiles[building.slug] ?? profiles[building.slug]
       const state = activeProfile?.[currentIndex]
       const polygon = energyEntitiesRef.current.get(building.slug)?.polygon
       if (!state || !polygon) continue
 
-      polygon.material = new ColorMaterialProperty(
-        Color.fromCssColorString(
-          getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds),
-        ).withAlpha(0.68),
+      const baseColor = Color.fromCssColorString(
+        getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds),
       )
+      const isSelected = building.slug === selectedSlug
+      const displayColor = isSelected
+        ? Color.lerp(baseColor, Color.WHITE, 0.24, new Color())
+        : baseColor
+
+      polygon.material = new ColorMaterialProperty(
+        displayColor.withAlpha(isSelected ? 0.94 : 0.68),
+      )
+
+      const label = viewer?.entities.getById(`label-${building.slug}`)?.label
+      if (label) {
+        label.scale = isSelected ? 1.08 : 1.0
+        label.backgroundColor = isSelected
+          ? Color.fromCssColorString('#DCE9E2').withAlpha(0.99)
+          : Color.fromCssColorString('#F7F8F4').withAlpha(0.98)
+      }
     }
-  }, [buildings, profiles, scenarioProfiles, currentIndex, thresholds])
+  }, [buildings, profiles, scenarioProfiles, currentIndex, thresholds, selectedSlug])
 
   const currentStates = useMemo(() => {
     if (!profiles) return null
