@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Cartesian2,
   Cartesian3,
   Cesium3DTileset,
   ClassificationType,
   Color,
+  ColorMaterialProperty,
   createGooglePhotorealistic3DTileset,
   Entity,
   Ion,
@@ -16,21 +17,24 @@ import {
   Viewer,
   VerticalOrigin,
 } from 'cesium'
+import { ENERGY_INTENSITY_THRESHOLDS, getEnergyIntensityColor } from './config/energy'
+import { fetchAllProfiles } from './services/api'
+import type { BuildingProfileMap, BuildingSlug } from './types/energy'
 
 type Mode = 'reality' | 'energy'
 
 type FocusBuilding = {
+  slug: BuildingSlug
   name: string
   longitude: number
   latitude: number
   height: number
   footprint: number[]
-  testIntensityWPerFt2: number
-  testColor: string
 }
 
 const BUILDINGS: FocusBuilding[] = [
   {
+    slug: 'serc',
     name: 'SERC',
     longitude: -75.15304,
     latitude: 39.98198,
@@ -41,10 +45,9 @@ const BUILDINGS: FocusBuilding[] = [
       -75.15268, 39.98228,
       -75.15342, 39.98228,
     ],
-    testIntensityWPerFt2: 8.1,
-    testColor: '#ef4444',
   },
   {
+    slug: 'beury',
     name: 'Beury Hall',
     longitude: -75.15449,
     latitude: 39.98210,
@@ -55,10 +58,9 @@ const BUILDINGS: FocusBuilding[] = [
       -75.15413, 39.98236,
       -75.15486, 39.98236,
     ],
-    testIntensityWPerFt2: 5.6,
-    testColor: '#f59e0b',
   },
   {
+    slug: 'engineering',
     name: 'Engineering Building',
     longitude: -75.15283,
     latitude: 39.98257,
@@ -69,17 +71,56 @@ const BUILDINGS: FocusBuilding[] = [
       -75.15249, 39.98282,
       -75.15316, 39.98282,
     ],
-    testIntensityWPerFt2: 2.4,
-    testColor: '#22c55e',
   },
 ]
+
+const PLAY_INTERVAL_MS = 800
 
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const realityTilesRef = useRef<Cesium3DTileset | null>(null)
-  const energyEntitiesRef = useRef<Entity[]>([])
+  const energyEntitiesRef = useRef<Map<BuildingSlug, Entity>>(new Map())
+
   const [mode, setMode] = useState<Mode>('reality')
+  const [profiles, setProfiles] = useState<BuildingProfileMap | null>(null)
+  const [currentHour, setCurrentHour] = useState(12)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dataError, setDataError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetchAllProfiles()
+      .then((data) => {
+        if (!cancelled) {
+          setProfiles(data)
+          setDataError(null)
+        }
+      })
+      .catch((err) => {
+        console.error('Temple Twin profile fetch failed:', err)
+        if (!cancelled) {
+          setDataError(
+            'Energy data unavailable. Make sure the FastAPI server is running on port 8000.',
+          )
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isPlaying) return
+
+    const timer = window.setInterval(() => {
+      setCurrentHour((hour) => (hour + 1) % 24)
+    }, PLAY_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [isPlaying])
 
   useEffect(() => {
     if (!viewerRef.current) return
@@ -139,21 +180,21 @@ function App() {
 
     const addEnergyHighlights = () => {
       for (const building of BUILDINGS) {
-        const tint = Color.fromCssColorString(building.testColor).withAlpha(0.62)
-
         const entity = viewer.entities.add({
-          name: `${building.name} — temporary Milestone 2 test intensity ${building.testIntensityWPerFt2} W/ft²`,
+          name: building.name,
           show: false,
           polygon: {
             hierarchy: new PolygonHierarchy(
               Cartesian3.fromDegreesArray(building.footprint),
             ),
-            material: tint,
+            material: new ColorMaterialProperty(
+              Color.fromCssColorString('#22c55e').withAlpha(0.62),
+            ),
             classificationType: ClassificationType.CESIUM_3D_TILE,
           },
         })
 
-        energyEntitiesRef.current.push(entity)
+        energyEntitiesRef.current.set(building.slug, entity)
       }
     }
 
@@ -190,22 +231,54 @@ function App() {
 
     return () => {
       disposed = true
+      energyEntitiesRef.current.clear()
       if (!viewer.isDestroyed()) viewer.destroy()
     }
   }, [])
 
   useEffect(() => {
-    // Keep the photorealistic campus visible in both modes so switching feels
-    // like an analytical overlay rather than loading a different city model.
     if (realityTilesRef.current) realityTilesRef.current.show = true
 
     const showEnergy = mode === 'energy'
-    for (const entity of energyEntitiesRef.current) {
+    for (const entity of energyEntitiesRef.current.values()) {
       entity.show = showEnergy
     }
 
-    setError(null)
+    if (mode === 'reality') setIsPlaying(false)
   }, [mode])
+
+  useEffect(() => {
+    if (!profiles) return
+
+    for (const building of BUILDINGS) {
+      const state = profiles[building.slug][currentHour]
+      const entity = energyEntitiesRef.current.get(building.slug)
+      const polygon = entity?.polygon
+
+      if (!state || !polygon) continue
+
+      const color = Color.fromCssColorString(
+        getEnergyIntensityColor(state.energy_intensity_w_ft2),
+      ).withAlpha(0.68)
+
+      polygon.material = new ColorMaterialProperty(color)
+    }
+  }, [profiles, currentHour])
+
+  const currentStates = useMemo(() => {
+    if (!profiles) return null
+    return BUILDINGS.map((building) => ({
+      ...building,
+      state: profiles[building.slug][currentHour],
+    }))
+  }, [profiles, currentHour])
+
+  const hourLabel = `${String(currentHour).padStart(2, '0')}:00`
+
+  const stepHour = (delta: number) => {
+    setIsPlaying(false)
+    setCurrentHour((hour) => (hour + delta + 24) % 24)
+  }
 
   return (
     <main className={`app-shell ${mode === 'energy' ? 'energy-mode' : ''}`}>
@@ -234,21 +307,80 @@ function App() {
       </div>
 
       {mode === 'energy' && (
-        <aside className="energy-legend" aria-label="Energy intensity legend">
-          <div className="legend-title">ENERGY INTENSITY</div>
-          <div className="legend-formula">
-            <span>Current Demand (W)</span>
-            <span className="formula-line" />
-            <span>Floor Area (ft²)</span>
-          </div>
-          <div className="legend-scale">
-            <div><span className="swatch low" />LOW</div>
-            <div><span className="swatch moderate" />MODERATE</div>
-            <div><span className="swatch high" />HIGH</div>
-            <div><span className="swatch very-high" />VERY HIGH</div>
-          </div>
-          <div className="legend-note">Temporary test colors · Milestone 2</div>
-        </aside>
+        <>
+          <aside className="energy-legend" aria-label="Energy intensity legend">
+            <div className="legend-title">ENERGY INTENSITY</div>
+            <div className="legend-formula">
+              <span>Current Demand (W)</span>
+              <span className="formula-line" />
+              <span>Floor Area (ft²)</span>
+            </div>
+            <div className="legend-scale">
+              <div><span className="swatch low" />LOW &lt; {ENERGY_INTENSITY_THRESHOLDS.moderate}</div>
+              <div><span className="swatch moderate" />MODERATE</div>
+              <div><span className="swatch high" />HIGH</div>
+              <div><span className="swatch very-high" />VERY HIGH ≥ {ENERGY_INTENSITY_THRESHOLDS.veryHigh}</div>
+            </div>
+            <div className="legend-note">W/ft² · same thresholds for all buildings</div>
+          </aside>
+
+          <aside className="hour-metrics" aria-label="Current building metrics">
+            <div className="metrics-time">FRIDAY · {hourLabel}</div>
+            {dataError ? (
+              <div className="data-error">{dataError}</div>
+            ) : !currentStates ? (
+              <div className="loading-copy">Loading Tiger-backed profiles…</div>
+            ) : (
+              currentStates.map(({ slug, name, state }) => (
+                <div className="metric-row" key={slug}>
+                  <div>
+                    <div className="metric-name">{name}</div>
+                    <div className="metric-intensity">
+                      {state.energy_intensity_w_ft2.toFixed(2)} W/ft²
+                    </div>
+                  </div>
+                  <div className="metric-demand">{state.demand_kw.toFixed(0)} kW</div>
+                </div>
+              ))
+            )}
+          </aside>
+
+          <section className="timeline" aria-label="Friday energy timeline">
+            <button type="button" onClick={() => stepHour(-1)} aria-label="Previous hour">
+              ‹
+            </button>
+            <button
+              type="button"
+              className="play-button"
+              onClick={() => setIsPlaying((playing) => !playing)}
+              disabled={!profiles}
+            >
+              {isPlaying ? 'PAUSE' : 'PLAY'}
+            </button>
+            <div className="timeline-main">
+              <div className="timeline-header">
+                <span>00:00</span>
+                <strong>{hourLabel}</strong>
+                <span>23:00</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="23"
+                step="1"
+                value={currentHour}
+                onChange={(event) => {
+                  setIsPlaying(false)
+                  setCurrentHour(Number(event.target.value))
+                }}
+                aria-label="Hour"
+              />
+            </div>
+            <button type="button" onClick={() => stepHour(1)} aria-label="Next hour">
+              ›
+            </button>
+          </section>
+        </>
       )}
 
       {error && <div className="error-banner">{error}</div>}
