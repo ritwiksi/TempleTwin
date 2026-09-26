@@ -17,8 +17,7 @@ services:
         VITE_CESIUM_ION_TOKEN: ${VITE_CESIUM_ION_TOKEN}
         VITE_API_BASE_URL: ""
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     restart: unless-stopped
     ports:
       - "80:80"
