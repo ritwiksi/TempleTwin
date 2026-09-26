@@ -1,0 +1,37 @@
+name: Sync Temple Campus Data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/sync_temple_campus.py"
+      - ".github/workflows/sync-campus.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pull authoritative Temple/Philadelphia campus data
+        run: python scripts/sync_temple_campus.py
+      - name: Show sync report
+        if: always()
+        run: cat backend/app/data/campus_sync_report.json || true
+      - name: Commit generated campus dataset
+        run: |
+          git config user.name "Temple Twin Data Sync"
+          git config user.email "actions@users.noreply.github.com"
+          git add backend/app/data/buildings.csv backend/app/data/building_geometry.json backend/app/data/campus_sync_report.json
+          if git diff --cached --quiet; then
+            echo "Campus dataset already current."
+          else
+            git commit -m "data: sync 50 Temple Main Campus buildings"
+            git push
+          fi
