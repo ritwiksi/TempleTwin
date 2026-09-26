@@ -173,16 +173,20 @@ def first_value(attrs: dict[str, Any], candidates: tuple[str, ...]) -> Any:
     return None
 
 
-def positive_float(value: Any) -> float | None:
+def float_value(value: Any) -> float | None:
     if value in (None, "", " "):
         return None
     try:
         if isinstance(value, str):
             value = value.replace(",", "").replace("$", "").strip()
-        number = float(value)
-        return number if number > 0 else None
+        return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def positive_float(value: Any) -> float | None:
+    number = float_value(value)
+    return number if number is not None and number > 0 else None
 
 
 def geometry_rings(geometry: dict[str, Any]) -> list[list[list[float]]]:
@@ -316,8 +320,8 @@ def benchmark_match(
     target = normalized_name(name)
     best: tuple[dict[str, Any] | None, float | None, float] = (None, None, 0.0)
     for row in rows:
-        row_lon = positive_float(row.get("x_lon"))
-        row_lat = positive_float(row.get("y_lat"))
+        row_lon = float_value(row.get("x_lon"))
+        row_lat = float_value(row.get("y_lat"))
         if row_lon is None or row_lat is None:
             continue
         dist = distance_m(lon, lat, row_lon, row_lat)
@@ -376,6 +380,20 @@ class Candidate:
 def main() -> None:
     temple_features, service_diagnostics = fetch_all_temple_features()
     benchmark_rows = fetch_benchmark_rows()
+
+    service_field_samples: dict[str, list[str]] = {}
+    service_attribute_samples: dict[str, dict[str, Any]] = {}
+    for feature in temple_features:
+        service = feature["_temple_service"]
+        attrs = feature.get("properties", {})
+        service_field_samples.setdefault(service, sorted(attrs.keys()))
+        if service not in service_attribute_samples:
+            service_attribute_samples[service] = attrs
+
+    benchmark_field_sample = (
+        sorted(benchmark_rows[0].keys()) if benchmark_rows else []
+    )
+    benchmark_sample = benchmark_rows[0] if benchmark_rows else {}
 
     # Merge duplicate representations across Temple GIS services by normalized name.
     raw_by_name: dict[str, list[dict[str, Any]]] = {}
@@ -527,6 +545,11 @@ def main() -> None:
             "qualified_buildings": len(selected_pairs),
             "required_buildings": 50,
             "service_diagnostics": service_diagnostics,
+            "service_field_samples": service_field_samples,
+            "service_attribute_samples": service_attribute_samples,
+            "benchmark_row_count": len(benchmark_rows),
+            "benchmark_field_sample": benchmark_field_sample,
+            "benchmark_sample": benchmark_sample,
             "rejected_missing_area": rejected,
         }
         OUT_REPORT.write_text(json.dumps(report, indent=2), encoding="utf-8")
@@ -606,6 +629,9 @@ def main() -> None:
         "reported_electricity_count": actual_electric,
         "campus_eui_modeled_count": len(selected_pairs) - actual_electric,
         "service_diagnostics": service_diagnostics,
+        "service_field_samples": service_field_samples,
+        "benchmark_row_count": len(benchmark_rows),
+        "benchmark_field_sample": benchmark_field_sample,
         "rejected_missing_area_count": len(rejected),
         "rejected_missing_area": rejected,
         "sources": {
