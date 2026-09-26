@@ -8,14 +8,14 @@ sys.path.insert(0, str(BACKEND_ROOT))
 from app.buildings import load_buildings
 from app.config.model_parameters import (
     CAMPUS_ELECTRIC_EUI_KWH_FT2,
-    INTERVALS_PER_DAY,
     INTERVAL_MINUTES,
+    SIMULATION_INTERVALS,
 )
 from app.services.profile_model import (
     COMPONENTS,
     _download_comstock_rows,
     annual_target_kwh,
-    generate_all_friday_profiles,
+    generate_all_simulation_profiles,
     generate_annual_profile,
 )
 
@@ -37,19 +37,21 @@ def test_actual_comstock_files_download_for_all_campus_archetypes():
         assert len(rows) > 30_000
 
 
-def test_each_building_has_96_ordered_friday_intervals():
+def test_each_building_has_complete_three_month_simulation_window():
     buildings = load_buildings()
-    profiles = generate_all_friday_profiles()
+    profiles = generate_all_simulation_profiles()
     assert set(profiles) == {b.slug for b in buildings}
     assert len(profiles) == 50
     for rows in profiles.values():
-        assert len(rows) == INTERVALS_PER_DAY
-        assert [row.interval_index for row in rows] == list(range(INTERVALS_PER_DAY))
+        assert len(rows) == SIMULATION_INTERVALS
+        assert [row.interval_index for row in rows] == list(range(SIMULATION_INTERVALS))
         assert all(row.minute in {0, 15, 30, 45} for row in rows)
+        assert rows[0].timestamp.startswith("2018-09-01T00:00")
+        assert rows[-1].timestamp.startswith("2018-11-30T23:45")
 
 
 def test_all_values_nonnegative_and_components_sum_to_demand():
-    profiles = generate_all_friday_profiles()
+    profiles = generate_all_simulation_profiles()
     for rows in profiles.values():
         for row in rows:
             components = [getattr(row, component) for component in COMPONENTS]
@@ -59,7 +61,7 @@ def test_all_values_nonnegative_and_components_sum_to_demand():
 
 
 def test_campus_contains_multiple_distinct_load_shapes():
-    profiles = generate_all_friday_profiles()
+    profiles = generate_all_simulation_profiles()
     normalized = {}
     for slug, rows in profiles.items():
         total = sum(row.demand_kw for row in rows)
