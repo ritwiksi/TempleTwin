@@ -21,8 +21,15 @@ import {
 } from 'cesium'
 import { deriveEnergyIntensityThresholds, getEnergyIntensityColor } from './config/energy'
 import { BuildingDetailPanel } from './components/BuildingDetailPanel'
-import { fetchAllProfiles, fetchBuildings, fetchWeather } from './services/api'
-import type { BuildingMetadata, BuildingProfileMap, BuildingSlug, WeatherHour } from './types/energy'
+import { fetchAllProfiles, fetchBuildings, fetchWeather, simulateInterventions } from './services/api'
+import type {
+  BuildingMetadata,
+  BuildingProfileMap,
+  BuildingSlug,
+  EnergyState,
+  InterventionFlags,
+  WeatherHour,
+} from './types/energy'
 
 type Mode = 'reality' | 'energy'
 
@@ -79,6 +86,18 @@ const BUILDINGS: FocusBuilding[] = [
 
 const PLAY_INTERVAL_MS = 180
 
+const EMPTY_INTERVENTIONS: InterventionFlags = {
+  led: false,
+  hvac: false,
+  solar: false,
+}
+
+const DEFAULT_INTERVENTIONS: Record<BuildingSlug, InterventionFlags> = {
+  serc: { ...EMPTY_INTERVENTIONS },
+  beury: { ...EMPTY_INTERVENTIONS },
+  engineering: { ...EMPTY_INTERVENTIONS },
+}
+
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const realityTilesRef = useRef<Cesium3DTileset | null>(null)
@@ -86,6 +105,13 @@ function App() {
 
   const [mode, setMode] = useState<Mode>('reality')
   const [profiles, setProfiles] = useState<BuildingProfileMap | null>(null)
+  const [scenarioProfiles, setScenarioProfiles] = useState<
+    Partial<Record<BuildingSlug, EnergyState[]>>
+  >({})
+  const [interventions, setInterventions] = useState<
+    Record<BuildingSlug, InterventionFlags>
+  >(DEFAULT_INTERVENTIONS)
+  const [isSimulating, setIsSimulating] = useState(false)
   const [buildings, setBuildings] = useState<BuildingMetadata[]>([])
   const [weather, setWeather] = useState<WeatherHour[] | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<BuildingSlug | null>(null)
@@ -286,7 +312,8 @@ function App() {
     if (!profiles) return
 
     for (const building of BUILDINGS) {
-      const state = profiles[building.slug][currentIndex]
+      const activeProfile = scenarioProfiles[building.slug] ?? profiles[building.slug]
+      const state = activeProfile[currentIndex]
       const entity = energyEntitiesRef.current.get(building.slug)
       const polygon = entity?.polygon
 
@@ -298,15 +325,18 @@ function App() {
 
       polygon.material = new ColorMaterialProperty(color)
     }
-  }, [profiles, currentIndex, thresholds])
+  }, [profiles, scenarioProfiles, currentIndex, thresholds])
 
   const currentStates = useMemo(() => {
     if (!profiles) return null
-    return BUILDINGS.map((building) => ({
-      ...building,
-      state: profiles[building.slug][currentIndex],
-    }))
-  }, [profiles, currentIndex])
+    return BUILDINGS.map((building) => {
+      const activeProfile = scenarioProfiles[building.slug] ?? profiles[building.slug]
+      return {
+        ...building,
+        state: activeProfile[currentIndex],
+      }
+    })
+  }, [profiles, scenarioProfiles, currentIndex])
 
   const selectedBuilding = useMemo(
     () => buildings.find((building) => building.slug === selectedSlug) ?? null,
@@ -335,6 +365,30 @@ function App() {
   const stepInterval = (delta: number) => {
     setIsPlaying(false)
     setCurrentIndex((index) => (index + delta + 96) % 96)
+  }
+
+  const toggleIntervention = async (
+    slug: BuildingSlug,
+    key: keyof InterventionFlags,
+  ) => {
+    const nextFlags = {
+      ...interventions[slug],
+      [key]: !interventions[slug][key],
+    }
+
+    setIsSimulating(true)
+    setDataError(null)
+
+    try {
+      const simulated = await simulateInterventions(slug, nextFlags)
+      setInterventions((current) => ({ ...current, [slug]: nextFlags }))
+      setScenarioProfiles((current) => ({ ...current, [slug]: simulated }))
+    } catch (err) {
+      console.error('Temple Twin intervention simulation failed:', err)
+      setDataError('Could not update the intervention scenario. Check the FastAPI server.')
+    } finally {
+      setIsSimulating(false)
+    }
   }
 
   return (
@@ -386,8 +440,12 @@ function App() {
             {selectedBuilding && profiles ? (
               <BuildingDetailPanel
                 building={selectedBuilding}
-                profile={profiles[selectedBuilding.slug]}
+                baselineProfile={profiles[selectedBuilding.slug]}
+                profile={scenarioProfiles[selectedBuilding.slug] ?? profiles[selectedBuilding.slug]}
                 currentIndex={currentIndex}
+                interventions={interventions[selectedBuilding.slug]}
+                isSimulating={isSimulating}
+                onToggle={(key) => void toggleIntervention(selectedBuilding.slug, key)}
                 onClose={() => setSelectedSlug(null)}
               />
             ) : (
