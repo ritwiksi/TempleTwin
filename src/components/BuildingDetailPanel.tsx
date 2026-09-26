@@ -63,7 +63,7 @@ export function BuildingDetailPanel({
     <div className="detail-panel">
       <div className="detail-head">
         <div>
-          <div className="dock-kicker">BUILDING DETAIL</div>
+          <div className="dock-kicker">BUILDING</div>
           <div className="detail-title">{building.name}</div>
         </div>
         <button className="detail-close" type="button" onClick={onClose} aria-label="Close building details">
@@ -73,7 +73,7 @@ export function BuildingDetailPanel({
 
       <div className="intervention-group" aria-label="Decarbonization interventions">
         <div className="intervention-head">
-          <span>Interventions</span>
+          <span>INTERVENTIONS</span>
           {isSimulating && <span className="simulating-copy">Updating…</span>}
         </div>
 
@@ -117,36 +117,36 @@ export function BuildingDetailPanel({
         </button>
       </div>
 
-      <div className="detail-grid">
-        <div className="detail-stat">
+      <div className="detail-metrics">
+        <div className="metric-line">
           <span>Current demand</span>
           <strong>{current.demand_kw.toFixed(0)} kW</strong>
         </div>
-        <div className="detail-stat">
-          <span>Grid import now</span>
+        <div className="metric-line">
+          <span>Grid import</span>
           <strong>{current.grid_import_kw.toFixed(0)} kW</strong>
         </div>
-        <div className="detail-stat">
+        <div className="metric-line">
           <span>Full-day energy</span>
           <strong>{fullDayEnergyKwh.toFixed(0)} kWh</strong>
         </div>
-        <div className="detail-stat">
+        <div className="metric-line">
           <span>Full-day carbon</span>
           <strong>{fullDayCarbonKg.toFixed(0)} kg CO₂e</strong>
         </div>
-        <div className="detail-stat detail-stat-wide">
+        <div className="metric-line">
           <span>Modeled annual electricity</span>
           <strong>{(scenarioAnnualKwh / 1_000_000).toFixed(2)} GWh/yr</strong>
         </div>
-        <div className="detail-stat detail-stat-wide">
-          <span>Solar generation now</span>
+        <div className="metric-line">
+          <span>Solar generation</span>
           <strong>{current.solar_kw.toFixed(0)} kW</strong>
         </div>
       </div>
 
       <div className="chart-block">
         <div className="chart-head">
-          <span>24-hour building demand</span>
+          <span>24-HOUR LOAD</span>
           <span>{String(current.hour).padStart(2, '0')}:{String((currentIndex % 4) * 15).padStart(2, '0')}</span>
         </div>
         <svg className="load-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Friday electricity demand curve">
