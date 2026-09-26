@@ -213,13 +213,13 @@ function App() {
           label: {
             text: building.name,
             font: "600 13px 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, monospace",
-            fillColor: Color.WHITE,
+            fillColor: Color.fromCssColorString('#244236'),
             outlineColor: Color.TRANSPARENT,
             outlineWidth: 0,
             style: LabelStyle.FILL,
             showBackground: true,
-            backgroundColor: Color.fromCssColorString('#09090B').withAlpha(0.82),
-            backgroundPadding: new Cartesian2(8, 5),
+            backgroundColor: Color.fromCssColorString('#F7F8F4').withAlpha(0.94),
+            backgroundPadding: new Cartesian2(9, 6),
             verticalOrigin: VerticalOrigin.BOTTOM,
             pixelOffset: new Cartesian2(0, -10),
             scaleByDistance: new NearFarScalar(250, 1.1, 2500, 0.72),
@@ -499,8 +499,8 @@ function App() {
               <>
                 <div className="dock-head">
                   <div>
-                    <div className="dock-kicker">ENERGY OVERVIEW</div>
-                    <div className="dock-title">CAMPUS LOAD</div>
+                    <div className="dock-kicker">energy overview</div>
+                    <div className="dock-title">Campus load</div>
                   </div>
                 </div>
 
@@ -572,13 +572,13 @@ function App() {
 
                     <div className="overview-legend" aria-label="Energy intensity legend">
                       <div className="overview-divider" />
-                      <div className="legend-title">ENERGY INTENSITY</div>
+                      <div className="legend-title">energy intensity</div>
                       <div className="legend-ramp" />
                       <div className="legend-axis">
-                        <span>LOW</span>
-                        <span>MODERATE</span>
-                        <span>HIGH</span>
-                        <span>VERY HIGH</span>
+                        <span>low</span>
+                        <span>moderate</span>
+                        <span>high</span>
+                        <span>very high</span>
                       </div>
                       <div className="legend-values">
                         <span>&lt; {thresholds.moderate.toFixed(2)}</span>
@@ -605,7 +605,7 @@ function App() {
               onClick={() => setIsPlaying((playing) => !playing)}
               disabled={!profiles}
             >
-              {isPlaying ? 'Pause' : 'Play'}
+              {isPlaying ? '❚❚' : '▶'}
             </button>
             <div className="timeline-main">
               <div className="timeline-header">
