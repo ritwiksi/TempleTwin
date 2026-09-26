@@ -15,9 +15,9 @@ The sync pipeline refuses to include a building that lacks an authoritative floo
 
 ## Load-shape model
 
-The temporal load behavior comes from official NREL/OEDI ComStock Philadelphia County files at their native **15-minute resolution**.
+Temporal load behavior comes from official NREL/OEDI ComStock Philadelphia County files at their native **15-minute resolution**.
 
-For every 15-minute interval the model retains:
+For every interval the model retains:
 
 - HVAC electricity;
 - lighting electricity;
@@ -25,7 +25,7 @@ For every 15-minute interval the model retains:
 - other electricity;
 - total demand.
 
-ComStock annual profiles are first scaled so annual energy equals the building's annual target.
+The full annual ComStock profile is scaled so its annual energy equals the building's annual target. This preserves ComStock's weekday/weekend and seasonal variation instead of creating an average day.
 
 ## Annual calibration
 
@@ -44,28 +44,36 @@ The campus calibration anchor is:
 - conversion: 293.071 kWh/MMBtu;
 - campus electricity EUI: approximately 16.1 kWh/ft²/year.
 
-## Interactive scenario day
+## Interactive simulation window
 
-The underlying ComStock profile is annual, but the current interactive API/Tiger/UI exposes one historical Friday:
+The interactive simulation currently spans:
 
-**September 14, 2018**
+**September 1, 2018 through November 30, 2018**
 
-That produces **96 states per building**, from 00:00 through 23:45.
+That is 91 consecutive days and **8,736 15-minute states per building**.
 
-Historical Open-Meteo weather is also loaded only for that date. Weather modifies HVAC through the bounded weather-response model, and the same day's irradiance is used for the rooftop-solar scenario.
+Historical Open-Meteo weather is cached for the same 91-day window. Temperature modifies HVAC through the bounded weather-response model, and historical irradiance drives the rooftop-solar scenario.
 
-So the current app is **annual-calibrated but single-day interactive**, not yet a year-round weather/time explorer.
+The frontend exposes one continuous master timeline but fetches the active calendar day from the API on demand. This keeps browser payloads manageable while the full three-month state history remains stored in Tiger.
 
 ## Energy intensity and color
 
 At each interval:
 
-`energy_intensity_w_ft2 = demand_kw × 1000 / floor_area_ft2`
+`energy_intensity_w_ft2 = demand_kw × 1000 / building_floor_area_ft2`
 
-The frontend derives shared intensity thresholds across the campus profile and applies the same scale to every building.
+The frontend derives shared intensity thresholds from the active day's campus profile and applies the same scale to every building for that day.
+
+## Intervention scenarios
+
+- LED retrofit reduces lighting load only.
+- HVAC efficiency reduces HVAC load only.
+- Rooftop solar leaves building demand unchanged and reduces grid import using historical irradiance.
+
+Intervention savings shown in the detail panel are day-specific. Temple Twin does not extrapolate one day's retrofit savings into an annual scenario total.
 
 ## Scientific wording
 
 Accurate description:
 
-> Temple Twin uses NREL ComStock 15-minute simulated end-use load shapes for Philadelphia County, scales them to building-level reported electricity where available or Temple's published campus electricity intensity otherwise, and applies historical weather for the interactive scenario day. Building-level interval values are modeled, not Temple smart-meter readings.
+> Temple Twin uses NREL ComStock 15-minute simulated end-use load shapes for Philadelphia County, scales the annual profile to building-level reported electricity where available or Temple's published campus electricity intensity otherwise, and applies historical weather across a continuous three-month simulation window. Building-level interval values are modeled, not Temple smart-meter readings.
