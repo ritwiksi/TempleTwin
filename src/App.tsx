@@ -78,6 +78,7 @@ function App() {
   const [dataError, setDataError] = useState<string | null>(null)
   const [isDataLoading, setIsDataLoading] = useState(true)
   const [showMethodology, setShowMethodology] = useState(false)
+  const [buildingSearch, setBuildingSearch] = useState('')
 
   const loadTwinData = async () => {
     setIsDataLoading(true)
@@ -318,6 +319,15 @@ function App() {
     [currentStates],
   )
 
+  const filteredCurrentStates = useMemo(() => {
+    if (!rankedCurrentStates) return null
+    const query = buildingSearch.trim().toLowerCase()
+    if (!query) return rankedCurrentStates
+    return rankedCurrentStates.filter(({ name }) =>
+      name.replace(/\s+/g, ' ').toLowerCase().includes(query),
+    )
+  }, [rankedCurrentStates, buildingSearch])
+
   const maxCurrentDemandKw = rankedCurrentStates?.[0]?.state.demand_kw ?? 0
 
   const selectedBuilding = useMemo(
@@ -364,6 +374,29 @@ function App() {
         roll: 0,
       },
       duration: 1.1,
+    })
+  }
+
+  const focusBuilding = (building: BuildingMetadata) => {
+    const viewer = viewerInstanceRef.current
+    setSelectedSlug(building.slug)
+    setBuildingSearch('')
+
+    if (!viewer) return
+
+    const cameraHeight = Math.max(210, building.approx_height_m * 7)
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(
+        building.longitude,
+        building.latitude - 0.00018,
+        cameraHeight,
+      ),
+      orientation: {
+        heading: 0,
+        pitch: CesiumMath.toRadians(-48),
+        roll: 0,
+      },
+      duration: 1.25,
     })
   }
 
@@ -429,7 +462,7 @@ function App() {
         <div className="status-copy">
           {mode === 'energy' && currentWeather ? (
             <>
-              <strong>{timeLabel}</strong>
+              <strong>Friday · {timeLabel}</strong>
               <span>{currentWeather.temperature_f.toFixed(0)}°F · {weatherLabel}</span>
             </>
           ) : (
@@ -470,13 +503,34 @@ function App() {
                   </div>
                 </div>
 
+                <div className="building-search">
+                  <span className="building-search-icon" aria-hidden="true">⌕</span>
+                  <input
+                    type="search"
+                    value={buildingSearch}
+                    onChange={(event) => setBuildingSearch(event.target.value)}
+                    placeholder="Search campus buildings"
+                    aria-label="Search campus buildings"
+                  />
+                  {buildingSearch && (
+                    <button
+                      type="button"
+                      className="search-clear"
+                      onClick={() => setBuildingSearch('')}
+                      aria-label="Clear building search"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
                 {dataError ? (
                   <div className="data-error-state">
                     <strong>Energy data unavailable</strong>
                     <span>{dataError}</span>
                     <button type="button" onClick={() => void loadTwinData()}>Retry</button>
                   </div>
-                ) : isDataLoading || !rankedCurrentStates ? (
+                ) : isDataLoading || !filteredCurrentStates ? (
                   <div className="loading-state">
                     <span className="loading-dot" />
                     <span>Loading campus profiles…</span>
@@ -484,7 +538,7 @@ function App() {
                 ) : (
                   <>
                     <div className="building-list">
-                      {rankedCurrentStates.map(({ slug, name, state }) => {
+                      {filteredCurrentStates.map(({ slug, name, state }) => {
                         const statusColor = getStatusColor(
                           state.energy_intensity_w_ft2,
                           thresholds,
@@ -499,7 +553,10 @@ function App() {
                             className="building-row"
                             type="button"
                             key={slug}
-                            onClick={() => setSelectedSlug(slug)}
+                            onClick={() => {
+                              const building = buildings.find((item) => item.slug === slug)
+                              if (building) focusBuilding(building)
+                            }}
                           >
                             <div className="building-row-content">
                               <div className="building-row-main">
@@ -529,6 +586,12 @@ function App() {
                         )
                       })}
                     </div>
+
+                    {filteredCurrentStates.length === 0 && (
+                      <div className="search-empty">
+                        No building matches “{buildingSearch}”.
+                      </div>
+                    )}
 
                     <div className="overview-legend" aria-label="Energy intensity legend">
                       <div className="overview-divider" />
@@ -569,7 +632,7 @@ function App() {
             <div className="timeline-main">
               <div className="timeline-header">
                 <span>00:00</span>
-                <strong>{timeLabel}</strong>
+                <strong>Friday · {timeLabel}</strong>
                 <span>23:45</span>
               </div>
               <input
