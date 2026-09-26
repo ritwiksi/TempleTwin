@@ -165,16 +165,13 @@ function App() {
           ),
           label: {
             text: building.name,
-            font: '600 13px Inter, system-ui, sans-serif',
+            font: '600 15px Inter, system-ui, sans-serif',
             fillColor: Color.WHITE,
-            outlineColor: Color.fromCssColorString('#05070A'),
-            outlineWidth: 2,
+            outlineColor: Color.fromCssColorString('#0B1118'),
+            outlineWidth: 4,
             style: LabelStyle.FILL_AND_OUTLINE,
-            showBackground: true,
-            backgroundColor: Color.fromCssColorString('#111318').withAlpha(0.82),
-            backgroundPadding: new Cartesian2(8, 5),
             verticalOrigin: VerticalOrigin.BOTTOM,
-            pixelOffset: new Cartesian2(0, -12),
+            pixelOffset: new Cartesian2(0, -10),
             scaleByDistance: new NearFarScalar(250, 1.1, 2500, 0.72),
             translucencyByDistance: new NearFarScalar(1800, 1, 5500, 0),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -316,16 +313,11 @@ function App() {
       <div ref={viewerRef} className="viewer" />
 
       <header className="brand">
-        <div className="brand-mark">TT</div>
-        <div className="brand-copy">
-          <div className="eyebrow">TEMPLE TWIN</div>
-          <div className="subtitle">Campus energy operations</div>
-        </div>
+        <div className="eyebrow">TEMPLE TWIN</div>
+        <div className="subtitle">Campus Energy Digital Twin</div>
       </header>
 
-      <div className="mode-switch-wrap">
-        <span className="mode-label">VIEW</span>
-        <div className="mode-switch" role="group" aria-label="Visualization mode">
+      <div className="mode-switch" role="group" aria-label="Visualization mode">
         <button
           type="button"
           className={mode === 'reality' ? 'active' : ''}
@@ -340,14 +332,12 @@ function App() {
         >
           ENERGY
         </button>
-        </div>
       </div>
 
       {mode === 'energy' && (
         <>
           <aside className="energy-legend" aria-label="Energy intensity legend">
-            <div className="panel-kicker">MAP LEGEND</div>
-            <div className="legend-title">Energy intensity</div>
+            <div className="legend-title">ENERGY INTENSITY</div>
             <div className="legend-formula">
               <span>Current Demand (W)</span>
               <span className="formula-line" />
@@ -364,10 +354,7 @@ function App() {
 
           <aside className="hour-metrics" aria-label="Current building metrics">
             <div className="metrics-header">
-              <div>
-                <div className="panel-kicker">LIVE MODEL</div>
-                <div className="metrics-time">FRIDAY · {timeLabel}</div>
-              </div>
+              <div className="metrics-time">FRIDAY · {timeLabel}</div>
               <div className="weather-chip">
                 {currentWeather
                   ? `${currentWeather.temperature_f.toFixed(0)}°F · ${weatherLabel}`
@@ -406,7 +393,6 @@ function App() {
               {isPlaying ? 'PAUSE' : 'PLAY'}
             </button>
             <div className="timeline-main">
-              <div className="timeline-kicker">FRIDAY OPERATING PROFILE</div>
               <div className="timeline-header">
                 <span>00:00</span>
                 <strong>{timeLabel}</strong>
