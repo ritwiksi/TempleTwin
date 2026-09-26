@@ -1,6 +1,6 @@
 export type BuildingSlug = 'serc' | 'beury' | 'engineering'
 
-export type HourlyState = {
+export type EnergyState = {
   timestamp: string
   hour: number
   hvac_kw: number
@@ -14,4 +14,4 @@ export type HourlyState = {
   carbon_kg: number | null
 }
 
-export type BuildingProfileMap = Record<BuildingSlug, HourlyState[]>
+export type BuildingProfileMap = Record<BuildingSlug, EnergyState[]>
