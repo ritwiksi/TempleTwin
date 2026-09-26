@@ -1,100 +1,86 @@
-# Temple Twin energy modeling — Milestone 3
+# Temple Twin energy modeling
 
-## Important distinction
+## Current data path
 
-Hourly profile **shapes now come from actual NREL ComStock data** downloaded
-from the official OEDI public data lake. The prior hand-written occupancy/load
-schedule generator has been removed.
+The temporal load behavior is taken from official NREL/OEDI ComStock
+Philadelphia County files at their native **15-minute resolution**. Temple Twin
+does not generate synthetic day/night schedules.
 
-Building-level Temple electricity values are still **MODELED ESTIMATES**, not
-Temple meter readings.
+For every 15-minute interval the model retains:
 
-## Actual ComStock source
+- HVAC electricity
+- lighting electricity
+- process/equipment electricity
+- other electricity
+- total demand
 
-Temple Twin uses the official 2021 ComStock AMY2018 county aggregate release:
+The Friday API/UI therefore uses **96 states per building**, from 00:00 through
+23:45.
 
-`2021/comstock_amy2018_release_1`
+## Absolute magnitude calibration
 
-Geography:
+The earlier hand-picked building EUIs (28 / 23 / 17.5 kWh/ft²/year) have been
+removed.
 
-- Pennsylvania
-- Philadelphia County
-- OEDI county GISJOIN: `g4201010`
+Until building-specific annual Temple electricity data or a separately
+calibrated physics model is available, all three buildings use the same public
+Temple campus-wide electricity-only calibration anchor:
 
-The source files are 15-minute aggregate end-use profiles from:
+- Temple gross area: 11,122,267 ft²
+- Temple electricity: 612,025 MMBtu/year
+- conversion: 293.071 kWh/MMBtu
+- campus electricity EUI: approximately 16.1 kWh/ft²/year
 
-`timeseries_aggregates/by_county/state=PA/`
+For each building:
 
-Configured proxies:
+`annual_target_kwh = campus_electric_eui × building_floor_area_ft2`
 
-| Temple building | Actual ComStock building-type profile |
-|---|---|
-| SERC | largeoffice |
-| Beury Hall | secondaryschool |
-| Engineering Building | mediumoffice |
+This intentionally does **not** invent a higher annual EUI for a lab building.
+Different 15-minute behavior still comes from the selected ComStock temporal
+profile, but the annual magnitude is neutral until stronger building-specific
+evidence is available.
 
-ComStock does not publish a dedicated research-laboratory building type in this
-release. The proxy mapping is therefore a modeling choice, but the underlying
-15-minute load values are actual ComStock outputs rather than invented curves.
+## Building area status
 
-## End-use decomposition from source data
+- SERC: approximately 250,000 ft² from Temple public documentation.
+- Beury Hall: area remains explicitly estimated.
+- Engineering Building: area remains explicitly estimated.
 
-The loader groups actual ComStock electricity end uses into:
+Those estimates remain the largest non-public inputs in the magnitude
+calculation and must not be described as measured floor areas.
 
-- HVAC: cooling, fans, heat recovery, heat rejection, electric heating, pumps
-- Lighting: interior + exterior lighting
-- Process: interior equipment + refrigeration
-- Other: remaining electricity needed to reconcile with total electricity
+## Color thresholds
 
-ComStock publishes timeseries energy values in kWh at 15-minute intervals.
-Temple Twin sums four intervals to an hourly kWh value; for a one-hour interval
-that is numerically equal to average kW.
+The prior fixed hand-picked thresholds were removed. The frontend computes one
+shared set of quartile breaks from all three buildings' 96 Friday intensity
+values. Every building at every timestamp is compared against the same breaks.
 
-The source timestamp marks the end of the 15-minute interval, which the loader
-handles when assigning samples to hours.
+This is a visualization classification, not an energy measurement.
 
-## Friday extraction
+## Scientific wording
 
-The representative day is Friday, September 14, 2018 from the AMY2018 ComStock
-release. The backend returns exactly 24 ordered rows, 00:00–23:00.
+Accurate description:
 
-No synthetic Friday schedule is generated.
+> Temple Twin uses NREL ComStock 15-minute simulated end-use load shapes for
+> Philadelphia County and scales them to Temple's published campus-wide
+> electricity intensity. Building-level values are modeled estimates, not
+> Temple meter readings.
 
-## Temple calibration
+## Alternatives under evaluation
 
-The public Temple campus anchor remains:
+ComStock is not the only option.
 
-- gross area: 11,122,267 ft²
-- electricity: 612,025 MMBtu/year
-- electricity-only campus EUI: about 16.1 kWh/ft²/year
+- Building Data Genome 2 provides real measured hourly whole-building meter
+  data across more than 1,600 non-residential buildings. It is attractive for
+  empirical load-shape validation, but buildings are anonymized and it lacks
+  ComStock-style 15-minute end-use decomposition.
+- DOE/PNNL Commercial Prototype Buildings and EnergyPlus provide physics-based
+  whole-building simulation models. A custom EnergyPlus model could ultimately
+  represent laboratory ventilation/process loads more explicitly, but it would
+  require substantial building-specific geometry, schedules, systems, and
+  calibration inputs.
+- LBNL CityBES/CBES also uses physics-based building-energy simulation for
+  building/city-scale analysis and is another possible future validation route.
 
-SERC's approximately 250,000 ft² area is publicly documented. Beury and
-Engineering floor areas remain explicit estimates until a better authoritative
-source is located.
-
-The selected ComStock profile supplies the **shape and component proportions**.
-A single scalar then scales the full annual ComStock electricity profile to the
-building's modeled annual target:
-
-`annual_target_kwh = modeled_eui_kwh_ft2 × floor_area_ft2`
-
-The current Temple-specific annual EUI values remain model assumptions:
-
-- SERC: 28.0 kWh/ft²/year
-- Beury: 23.0 kWh/ft²/year
-- Engineering: 17.5 kWh/ft²/year
-
-So: hourly behavior is ComStock-derived; absolute Temple magnitude is modeled.
-
-## Scientific honesty
-
-Do not describe these profiles as Temple meter readings.
-
-A precise description is:
-
-> "Hourly load shapes and end-use composition are derived from NREL ComStock
-> Philadelphia County simulations and scaled to Temple-specific modeled annual
-> electricity targets."
-
-ComStock itself is a validated simulation dataset, not measured building meter
-data.
+The current application keeps its building-type mapping internal while this
+modeling choice is evaluated.
