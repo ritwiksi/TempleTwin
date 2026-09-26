@@ -63,3 +63,11 @@ def state(
     if row is None:
         raise HTTPException(status_code=404, detail="State not found")
     return row
+
+
+@app.get("/api/weather")
+def weather():
+    rows = repository.get_weather()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Weather cache not found")
+    return rows
