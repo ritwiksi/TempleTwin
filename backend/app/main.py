@@ -5,6 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import check_connection
 from app import repository
 from app.services.intervention_model import apply_interventions
+from app.config.model_parameters import (
+    INTERVAL_MINUTES,
+    INTERVALS_PER_DAY,
+    SIMULATION_END_DATE,
+    SIMULATION_INTERVALS,
+    SIMULATION_START_DATE,
+)
 
 app = FastAPI(
     title="Temple Twin API",
@@ -35,9 +42,23 @@ def buildings():
     return repository.list_buildings()
 
 
+@app.get("/api/simulation")
+def simulation():
+    return {
+        "start_date": SIMULATION_START_DATE,
+        "end_date": SIMULATION_END_DATE,
+        "interval_minutes": INTERVAL_MINUTES,
+        "intervals_per_day": INTERVALS_PER_DAY,
+        "total_intervals": SIMULATION_INTERVALS,
+    }
+
+
 @app.get("/api/profiles")
-def profiles(scenario: str = Query("baseline", min_length=1)):
-    rows = repository.get_all_profiles(scenario)
+def profiles(
+    scenario: str = Query("baseline", min_length=1),
+    date: str = Query(SIMULATION_START_DATE, min_length=10, max_length=10),
+):
+    rows = repository.get_all_profiles(scenario, date)
     grouped: dict[str, list[dict]] = {}
     for row in rows:
         item = dict(row)
@@ -55,10 +76,14 @@ def building(slug: str):
 
 
 @app.get("/api/buildings/{slug}/profile")
-def profile(slug: str, scenario: str = Query("baseline", min_length=1)):
+def profile(
+    slug: str,
+    scenario: str = Query("baseline", min_length=1),
+    date: str = Query(SIMULATION_START_DATE, min_length=10, max_length=10),
+):
     if repository.get_building(slug) is None:
         raise HTTPException(status_code=404, detail="Building not found")
-    rows = repository.get_profile(slug, scenario)
+    rows = repository.get_profile(slug, scenario, date)
     if not rows:
         raise HTTPException(status_code=404, detail="Profile not found")
     return rows
@@ -69,18 +94,21 @@ def state(
     slug: str,
     hour: int = Query(..., ge=0, le=23),
     scenario: str = Query("baseline", min_length=1),
+    date: str = Query(SIMULATION_START_DATE, min_length=10, max_length=10),
 ):
     if repository.get_building(slug) is None:
         raise HTTPException(status_code=404, detail="Building not found")
-    row = repository.get_state(slug, hour, scenario)
+    row = repository.get_state(slug, hour, scenario, date)
     if row is None:
         raise HTTPException(status_code=404, detail="State not found")
     return row
 
 
 @app.get("/api/weather")
-def weather():
-    rows = repository.get_weather()
+def weather(
+    date: str = Query(SIMULATION_START_DATE, min_length=10, max_length=10),
+):
+    rows = repository.get_weather(date)
     if not rows:
         raise HTTPException(status_code=404, detail="Weather cache not found")
     return rows
@@ -93,18 +121,25 @@ class InterventionRequest(BaseModel):
 
 
 @app.post("/api/buildings/{slug}/simulate")
-def simulate(slug: str, request: InterventionRequest):
+def simulate(
+    slug: str,
+    request: InterventionRequest,
+    date: str = Query(SIMULATION_START_DATE, min_length=10, max_length=10),
+):
     building_row = repository.get_building(slug)
     if building_row is None:
         raise HTTPException(status_code=404, detail="Building not found")
 
-    profile_rows = repository.get_profile(slug, "baseline")
-    weather_rows = repository.get_weather()
+    profile_rows = repository.get_profile(slug, "baseline", date)
+    weather_rows = repository.get_weather(date)
 
     if not profile_rows:
         raise HTTPException(status_code=404, detail="Baseline profile not found")
     if len(weather_rows) != 24:
-        raise HTTPException(status_code=503, detail="Weather cache unavailable")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Weather cache unavailable for {date}",
+        )
 
     return apply_interventions(
         slug,
