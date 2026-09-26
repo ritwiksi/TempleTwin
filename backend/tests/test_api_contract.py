@@ -54,3 +54,26 @@ def test_state_endpoint_still_returns_requested_hour(mock_state, mock_building):
     response = client.get("/api/buildings/serc/state?hour=14")
     assert response.status_code == 200
     assert response.json()["hour"] == 14
+
+
+@patch(
+    "app.main.repository.get_weather",
+    return_value=[
+        {
+            "timestamp": f"2018-09-14T{hour:02d}:00:00",
+            "temperature_f": 70.0,
+            "relative_humidity_pct": 50.0,
+            "cloud_cover_pct": 20.0,
+            "ghi_w_m2": 0.0,
+            "dni_w_m2": 0.0,
+            "weather_code": 1,
+            "source": "Open-Meteo historical weather API",
+        }
+        for hour in range(24)
+    ],
+)
+def test_weather_endpoint_returns_cached_friday(mock_weather):
+    response = client.get("/api/weather")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 24
