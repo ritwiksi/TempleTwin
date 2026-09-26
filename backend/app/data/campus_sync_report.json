@@ -1,10 +1,10 @@
 {
   "status": "ok",
   "building_count": 50,
-  "reported_electricity_count": 26,
-  "campus_eui_modeled_count": 24,
-  "temple_gis_area_count": 49,
-  "benchmark_area_count": 1,
+  "reported_electricity_count": 23,
+  "campus_eui_modeled_count": 27,
+  "temple_gis_area_count": 50,
+  "benchmark_area_count": 0,
   "service_diagnostics": {
     "TU_Buildings_2026": {
       "ok": true,
@@ -130,7 +130,7 @@
     "x_lon",
     "y_lat"
   ],
-  "rejected_missing_area_count": 7,
+  "rejected_missing_area_count": 8,
   "rejected_missing_area": [
     {
       "name": "Presser Hall Addition",
@@ -166,6 +166,14 @@
     },
     {
       "name": "Edward H. Rosen Hillel Center for Jewish Life",
+      "reason": "no authoritative gross/floor area attribute",
+      "geometry_source": "TU_MainCampus_Buildings",
+      "benchmark_match": null,
+      "benchmark_distance_m": null,
+      "benchmark_score": 0.0
+    },
+    {
+      "name": "Oxford Village",
       "reason": "no authoritative gross/floor area attribute",
       "geometry_source": "TU_MainCampus_Buildings",
       "benchmark_match": null,
