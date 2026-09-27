@@ -120,8 +120,13 @@ def test_hvac_reduction_is_exactly_configured_fraction():
 
 def test_solar_is_zero_at_night_and_positive_during_day():
     result = simulate(solar=True)
-    night_indices = list(range(0, 8 * 4)) + list(range(18 * 4, 96))
-    assert all(math.isclose(result[index]["solar_kw"], 0.0, abs_tol=1e-12) for index in night_indices)
+    # 07:15-07:45 can ramp above zero because irradiance is linearly
+    # interpolated between the 07:00 and 08:00 hourly observations.
+    deep_night_indices = list(range(0, 7 * 4)) + list(range(18 * 4, 96))
+    assert all(
+        math.isclose(result[index]["solar_kw"], 0.0, abs_tol=1e-12)
+        for index in deep_night_indices
+    )
     assert any(row["solar_kw"] > 0 for row in result[8 * 4 : 18 * 4])
 
 
