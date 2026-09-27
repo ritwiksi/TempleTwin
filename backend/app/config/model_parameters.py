@@ -38,16 +38,6 @@ TEMPLE_LONGITUDE = -75.1543
 WEATHER_START_DATE = SIMULATION_START_DATE
 WEATHER_END_DATE = SIMULATION_END_DATE
 
-# Simplified bounded HVAC weather normalization.
-# These are model coefficients, not measured Temple HVAC sensitivities.
-COOLING_BALANCE_F = 70.0
-HEATING_BALANCE_F = 55.0
-COOLING_BETA_PER_F = 0.008
-HEATING_BETA_PER_F = 0.006
-HVAC_WEATHER_FACTOR_MIN = 0.90
-HVAC_WEATHER_FACTOR_MAX = 1.20
-
-
 # EPA eGRID2023 RFC East (RFCE) total output CO2e emission rate.
 # 599.170 lb CO2e/MWh -> kg CO2e/kWh.
 EGRID_RFCE_CO2E_LB_PER_MWH = 599.170
@@ -57,13 +47,24 @@ EGRID_RFCE_CO2E_KG_PER_KWH = (
 )
 
 
-# LED: DOE Forrestal Building project reduced lighting energy use by 50%.
-LED_LIGHTING_REDUCTION_FRACTION = 0.50
+# Lighting retrofit targets: ASHRAE 90.1-2019 Building Area Method values
+# as updated by Addendum bb. These are target lighting power densities, not
+# claimed existing Temple fixture inventories.
+ASHRAE_TARGET_LPD_W_FT2 = {
+    "school_university": 0.70,
+    "office": 0.62,
+    "hotel": 0.53,
+    "warehouse": 0.45,
+    "retail": 0.78,
+    "parking_garage": 0.17,
+    "sports_arena": 0.73,
+}
 
-# HVAC: conservative scenario assumption informed by DOE commercial controls studies
-# showing ~6-8% whole-building savings from individual HVAC control measures.
-# This is NOT a measured Temple retrofit result.
-HVAC_EFFICIENCY_IMPROVEMENT_FRACTION = 0.10
+# HVAC controls scenario: PNNL/DOE found about 6% whole-building energy
+# savings from limiting heating/cooling to periods when a building is most
+# likely occupied. Temple Twin translates that whole-building benchmark into
+# a building/day-specific HVAC reduction using the modeled HVAC share.
+PNNL_HVAC_CONTROLS_WHOLE_BUILDING_SAVINGS_FRACTION = 0.06
 
 # Rooftop PV assumptions.
 # NREL rooftop technical-potential work used ~60-65% suitable commercial roof
