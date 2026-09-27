@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 import snowflake.connector
 from dotenv import load_dotenv
 
-load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+ROOT_ENV = PROJECT_ROOT / ".env"
+
+# During local development, prefer the repository .env over stale shell exports.
+# Production deployments normally do not ship a .env file, so injected environment
+# variables remain the source of truth there.
+if ROOT_ENV.exists():
+    load_dotenv(ROOT_ENV, override=True)
+else:
+    load_dotenv()
 
 MODEL = os.getenv("SNOWFLAKE_CORTEX_MODEL", "llama3.1-8b")
 
@@ -102,3 +112,68 @@ def complete_with_cortex(question: str, context: dict[str, Any]) -> str:
         raise RuntimeError("Snowflake Cortex returned an empty response")
 
     return str(row[0]).strip()
+
+
+
+def connection_diagnostics() -> dict[str, Any]:
+    """Test Snowflake login/session context and Cortex without exposing secrets."""
+    settings = _settings()
+    result: dict[str, Any] = {
+        "configured": True,
+        "account": settings["SNOWFLAKE_ACCOUNT"],
+        "user": settings["SNOWFLAKE_USER"],
+        "role": settings["SNOWFLAKE_ROLE"],
+        "warehouse": settings["SNOWFLAKE_WAREHOUSE"],
+        "database": settings["SNOWFLAKE_DATABASE"],
+        "schema": settings["SNOWFLAKE_SCHEMA"],
+        "model": MODEL,
+        "login": False,
+        "session": False,
+        "cortex": False,
+    }
+
+    connection = snowflake.connector.connect(
+        account=settings["SNOWFLAKE_ACCOUNT"],
+        user=settings["SNOWFLAKE_USER"],
+        password=settings["SNOWFLAKE_PASSWORD"],
+        warehouse=settings["SNOWFLAKE_WAREHOUSE"],
+        database=settings["SNOWFLAKE_DATABASE"],
+        schema=settings["SNOWFLAKE_SCHEMA"],
+        role=settings["SNOWFLAKE_ROLE"],
+        session_parameters={"QUERY_TAG": "temple_twin_diagnostic"},
+    )
+    result["login"] = True
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT CURRENT_ACCOUNT(), CURRENT_REGION(), CURRENT_ROLE(), "
+                "CURRENT_WAREHOUSE(), CURRENT_DATABASE(), CURRENT_SCHEMA()"
+            )
+            row = cursor.fetchone()
+            if row:
+                result["session"] = True
+                result["resolved"] = {
+                    "account_locator": row[0],
+                    "region": row[1],
+                    "role": row[2],
+                    "warehouse": row[3],
+                    "database": row[4],
+                    "schema": row[5],
+                }
+
+            cursor.execute(
+                "SELECT SNOWFLAKE.CORTEX.COMPLETE(%s, %s)",
+                (MODEL, "Reply with exactly: Temple Twin Cortex OK"),
+            )
+            cortex_row = cursor.fetchone()
+            result["cortex"] = bool(cortex_row and cortex_row[0])
+            result["cortex_preview"] = (
+                str(cortex_row[0]).strip()[:120]
+                if cortex_row and cortex_row[0] is not None
+                else None
+            )
+    finally:
+        connection.close()
+
+    return result
