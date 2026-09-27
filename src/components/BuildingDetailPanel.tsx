@@ -31,8 +31,8 @@ function buildPath(
     .join(' ')
 }
 
-function energyKwh(profile: EnergyState[]): number {
-  return profile.reduce((sum, row) => sum + row.demand_kw * 0.25, 0)
+function gridEnergyKwh(profile: EnergyState[]): number {
+  return profile.reduce((sum, row) => sum + row.grid_import_kw * 0.25, 0)
 }
 
 export function BuildingDetailPanel({
@@ -46,7 +46,7 @@ export function BuildingDetailPanel({
   onClose,
 }: Props) {
   const current = profile[currentIndex]
-  const fullDayEnergyKwh = energyKwh(profile)
+  const fullDayGridEnergyKwh = gridEnergyKwh(profile)
   const baselineAnnualKwh = building.modeled_annual_eui_kwh_ft2 * building.floor_area_ft2
   const fullDayCarbonKg = profile.reduce((sum, row) => sum + (row.carbon_kg ?? 0), 0)
 
@@ -136,15 +136,15 @@ export function BuildingDetailPanel({
           <strong>{current.grid_import_kw.toFixed(0)} kW</strong>
         </div>
         <div className="metric-line">
-          <span>Full-day energy</span>
-          <strong>{fullDayEnergyKwh.toFixed(0)} kWh</strong>
+          <span>Full-day grid energy</span>
+          <strong>{fullDayGridEnergyKwh.toFixed(0)} kWh</strong>
         </div>
         <div className="metric-line">
           <span>Full-day carbon</span>
           <strong>{fullDayCarbonKg.toFixed(0)} kg CO₂e</strong>
         </div>
         <div className="metric-line">
-          <span>Annual baseline electricity</span>
+          <span>Annual baseline electricity · fixed</span>
           <strong>{(baselineAnnualKwh / 1_000_000).toFixed(2)} GWh/yr</strong>
         </div>
       </div>
