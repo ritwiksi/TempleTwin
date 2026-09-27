@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import type { BuildingMetadata, EnergyState, InterventionFlags } from '../types/energy'
 
 type Props = {
@@ -10,7 +9,6 @@ type Props = {
   isSimulating: boolean
   onToggle: (key: keyof InterventionFlags) => void
   onClose: () => void
-  askSection?: ReactNode
 }
 
 function buildPath(
@@ -45,8 +43,7 @@ export function BuildingDetailPanel({
   interventions,
   isSimulating,
   onToggle,
-  onClose,
-  askSection,
+  onClose
 }: Props) {
   const current = profile[currentIndex]
   const fullDayGridEnergyKwh = gridEnergyKwh(profile)
@@ -120,8 +117,6 @@ export function BuildingDetailPanel({
           <span className="toggle-track"><span /></span>
         </button>
       </div>
-
-      {askSection}
 
       {(interventions.led || interventions.hvac || interventions.solar) && (
         <div className="intervention-impact-row" aria-label="Active intervention impacts">
