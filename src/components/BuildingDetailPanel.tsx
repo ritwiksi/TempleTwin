@@ -46,6 +46,21 @@ export function BuildingDetailPanel({
   onClose
 }: Props) {
   const current = profile[currentIndex]
+  const baselineCurrent = baselineProfile[currentIndex]
+  const ledReductionPct = (current.led_reduction_fraction ?? 0) * 100
+  const hvacReductionPct = (current.hvac_reduction_fraction ?? 0) * 100
+  const hvacWholeBuildingSavingsPct =
+    (current.hvac_controls_achieved_savings_fraction ?? 0) * 100
+  const demandReductionPct =
+    baselineCurrent?.demand_kw > 0
+      ? ((baselineCurrent.demand_kw - current.demand_kw) / baselineCurrent.demand_kw) * 100
+      : 0
+  const gridReductionPct =
+    baselineCurrent?.grid_import_kw > 0
+      ? ((baselineCurrent.grid_import_kw - current.grid_import_kw) /
+          baselineCurrent.grid_import_kw) *
+        100
+      : 0
   const fullDayGridEnergyKwh = gridEnergyKwh(profile)
   const baselineAnnualKwh = building.modeled_annual_eui_kwh_ft2 * building.floor_area_ft2
   const fullDayCarbonKg = profile.reduce((sum, row) => sum + (row.carbon_kg ?? 0), 0)
@@ -87,8 +102,11 @@ export function BuildingDetailPanel({
           onClick={() => onToggle('led')}
         >
           <span>
-            <strong>LED retrofit</strong>
-            <small>Lighting ↓ 50% · lighting load only</small>
+            <strong>LED code-upgrade retrofit</strong>
+            <small>
+              ASHRAE LPD {current.led_reference_lpd_w_ft2?.toFixed(2) ?? '—'} →{' '}
+              {current.led_target_lpd_w_ft2?.toFixed(2) ?? '—'} W/ft²
+            </small>
           </span>
           <span className="toggle-track"><span /></span>
         </button>
@@ -99,8 +117,8 @@ export function BuildingDetailPanel({
           onClick={() => onToggle('hvac')}
         >
           <span>
-            <strong>HVAC efficiency</strong>
-            <small>HVAC ↓ 10% · HVAC load only</small>
+            <strong>HVAC controls optimization</strong>
+            <small>PNNL controls benchmark · ~6% whole-building/day target</small>
           </span>
           <span className="toggle-track"><span /></span>
         </button>
@@ -120,8 +138,13 @@ export function BuildingDetailPanel({
 
       {(interventions.led || interventions.hvac || interventions.solar) && (
         <div className="intervention-impact-row" aria-label="Active intervention impacts">
-          {interventions.led && <span>Lighting ↓ 50%</span>}
-          {interventions.hvac && <span>HVAC ↓ 10%</span>}
+          {interventions.led && <span>Lighting ↓ {ledReductionPct.toFixed(1)}%</span>}
+          {interventions.hvac && (
+            <span>
+              HVAC ↓ {hvacReductionPct.toFixed(1)}% · building ↓{' '}
+              {hvacWholeBuildingSavingsPct.toFixed(1)}%
+            </span>
+          )}
           {interventions.solar && <span>Grid import ↓ · carbon avoided</span>}
         </div>
       )}
@@ -129,11 +152,17 @@ export function BuildingDetailPanel({
       <div className="detail-metrics">
         <div className="metric-line">
           <span>Current demand</span>
-          <strong>{current.demand_kw.toFixed(0)} kW</strong>
+          <strong>
+            {current.demand_kw.toFixed(0)} kW
+            {demandReductionPct > 0.05 ? ` ↓ ${demandReductionPct.toFixed(1)}%` : ''}
+          </strong>
         </div>
         <div className="metric-line">
           <span>Grid import</span>
-          <strong>{current.grid_import_kw.toFixed(0)} kW</strong>
+          <strong>
+            {current.grid_import_kw.toFixed(0)} kW
+            {gridReductionPct > 0.05 ? ` ↓ ${gridReductionPct.toFixed(1)}%` : ''}
+          </strong>
         </div>
         <div className="metric-line">
           <span>Full-day grid energy</span>
@@ -171,8 +200,9 @@ export function BuildingDetailPanel({
       </div>
 
       <div className="detail-footnote">
-        Building electricity is modeled. Intervention savings are scenario assumptions;
-        solar uses cached Open-Meteo irradiance and estimated usable roof area.
+        Building electricity is modeled. LED compares ASHRAE 90.1-2004 reference LPD
+        with a 90.1-2019 target; HVAC translates a PNNL controls benchmark through this
+        day's modeled HVAC share. Solar uses historical irradiance and estimated usable roof area.
       </div>
     </div>
   )
