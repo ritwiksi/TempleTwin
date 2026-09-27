@@ -64,20 +64,36 @@ def get_profile(
     date: str | None = None,
 ) -> list[dict]:
     with get_connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
-                   s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
-                   s.demand_kw, s.solar_kw, s.grid_import_kw,
-                   s.energy_intensity_w_ft2, s.carbon_kg
-            FROM building_hourly_state s
-            JOIN buildings b ON b.id = s.building_id
-            WHERE b.slug = %s AND s.scenario_id = %s
-              AND (%s IS NULL OR s.timestamp::date = %s::date)
-            ORDER BY s.timestamp
-            """,
-            (slug, scenario, date, date),
-        )
+        if date is None:
+            cur.execute(
+                """
+                SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                       s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
+                       s.demand_kw, s.solar_kw, s.grid_import_kw,
+                       s.energy_intensity_w_ft2, s.carbon_kg
+                FROM building_hourly_state s
+                JOIN buildings b ON b.id = s.building_id
+                WHERE b.slug = %s AND s.scenario_id = %s
+                ORDER BY s.timestamp
+                """,
+                (slug, scenario),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                       s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
+                       s.demand_kw, s.solar_kw, s.grid_import_kw,
+                       s.energy_intensity_w_ft2, s.carbon_kg
+                FROM building_hourly_state s
+                JOIN buildings b ON b.id = s.building_id
+                WHERE b.slug = %s
+                  AND s.scenario_id = %s
+                  AND s.timestamp::date = %s::date
+                ORDER BY s.timestamp
+                """,
+                (slug, scenario, date),
+            )
         return list(cur.fetchall())
 
 
@@ -86,21 +102,37 @@ def get_all_profiles(
     date: str | None = None,
 ) -> list[dict]:
     with get_connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT b.slug, s.timestamp,
-                   EXTRACT(HOUR FROM s.timestamp)::int AS hour,
-                   s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
-                   s.demand_kw, s.solar_kw, s.grid_import_kw,
-                   s.energy_intensity_w_ft2, s.carbon_kg
-            FROM building_hourly_state s
-            JOIN buildings b ON b.id = s.building_id
-            WHERE s.scenario_id = %s
-              AND (%s IS NULL OR s.timestamp::date = %s::date)
-            ORDER BY b.slug, s.timestamp
-            """,
-            (scenario, date, date),
-        )
+        if date is None:
+            cur.execute(
+                """
+                SELECT b.slug, s.timestamp,
+                       EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                       s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
+                       s.demand_kw, s.solar_kw, s.grid_import_kw,
+                       s.energy_intensity_w_ft2, s.carbon_kg
+                FROM building_hourly_state s
+                JOIN buildings b ON b.id = s.building_id
+                WHERE s.scenario_id = %s
+                ORDER BY b.slug, s.timestamp
+                """,
+                (scenario,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT b.slug, s.timestamp,
+                       EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                       s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
+                       s.demand_kw, s.solar_kw, s.grid_import_kw,
+                       s.energy_intensity_w_ft2, s.carbon_kg
+                FROM building_hourly_state s
+                JOIN buildings b ON b.id = s.building_id
+                WHERE s.scenario_id = %s
+                  AND s.timestamp::date = %s::date
+                ORDER BY b.slug, s.timestamp
+                """,
+                (scenario, date),
+            )
         return list(cur.fetchall())
 
 
@@ -111,36 +143,64 @@ def get_state(
     date: str | None = None,
 ) -> dict | None:
     with get_connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
-                   s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
-                   s.demand_kw, s.solar_kw, s.grid_import_kw,
-                   s.energy_intensity_w_ft2, s.carbon_kg
-            FROM building_hourly_state s
-            JOIN buildings b ON b.id = s.building_id
-            WHERE b.slug = %s
-              AND s.scenario_id = %s
-              AND EXTRACT(HOUR FROM s.timestamp)::int = %s
-              AND (%s IS NULL OR s.timestamp::date = %s::date)
-            ORDER BY s.timestamp
-            LIMIT 1
-            """,
-            (slug, scenario, hour, date, date),
-        )
+        if date is None:
+            cur.execute(
+                """
+                SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                       s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
+                       s.demand_kw, s.solar_kw, s.grid_import_kw,
+                       s.energy_intensity_w_ft2, s.carbon_kg
+                FROM building_hourly_state s
+                JOIN buildings b ON b.id = s.building_id
+                WHERE b.slug = %s
+                  AND s.scenario_id = %s
+                  AND EXTRACT(HOUR FROM s.timestamp)::int = %s
+                ORDER BY s.timestamp
+                LIMIT 1
+                """,
+                (slug, scenario, hour),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                       s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
+                       s.demand_kw, s.solar_kw, s.grid_import_kw,
+                       s.energy_intensity_w_ft2, s.carbon_kg
+                FROM building_hourly_state s
+                JOIN buildings b ON b.id = s.building_id
+                WHERE b.slug = %s
+                  AND s.scenario_id = %s
+                  AND EXTRACT(HOUR FROM s.timestamp)::int = %s
+                  AND s.timestamp::date = %s::date
+                ORDER BY s.timestamp
+                LIMIT 1
+                """,
+                (slug, scenario, hour, date),
+            )
         return cur.fetchone()
 
 
 def get_weather(date: str | None = None) -> list[dict]:
     with get_connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT timestamp, temperature_f, relative_humidity_pct,
-                   cloud_cover_pct, ghi_w_m2, dni_w_m2, weather_code, source
-            FROM weather_hourly
-            WHERE (%s IS NULL OR timestamp::date = %s::date)
-            ORDER BY timestamp
-            """,
-            (date, date),
-        )
+        if date is None:
+            cur.execute(
+                """
+                SELECT timestamp, temperature_f, relative_humidity_pct,
+                       cloud_cover_pct, ghi_w_m2, dni_w_m2, weather_code, source
+                FROM weather_hourly
+                ORDER BY timestamp
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT timestamp, temperature_f, relative_humidity_pct,
+                       cloud_cover_pct, ghi_w_m2, dni_w_m2, weather_code, source
+                FROM weather_hourly
+                WHERE timestamp::date = %s::date
+                ORDER BY timestamp
+                """,
+                (date,),
+            )
         return list(cur.fetchall())
