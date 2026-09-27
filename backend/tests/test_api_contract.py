@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from unittest.mock import patch
+from datetime import datetime
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
@@ -183,3 +184,122 @@ def test_simulate_endpoint_can_return_baseline_when_all_flags_off(
     assert len(body) == 96
     assert body[40]["demand_kw"] == SAMPLE_PROFILE[40]["demand_kw"]
     assert body[40]["grid_import_kw"] == SAMPLE_PROFILE[40]["grid_import_kw"]
+
+
+@patch("app.main.complete_with_cortex", return_value="SERC demand is driven mainly by process and HVAC load.")
+@patch(
+    "app.main.repository.get_weather",
+    return_value=[
+        {
+            "timestamp": datetime(2018, 9, 14, hour, 0),
+            "temperature_f": 78.0,
+            "relative_humidity_pct": 52.0,
+            "cloud_cover_pct": 15.0,
+            "ghi_w_m2": 500.0 if 8 <= hour <= 17 else 0.0,
+            "dni_w_m2": 400.0 if 8 <= hour <= 17 else 0.0,
+            "weather_code": 1,
+            "source": "Open-Meteo historical weather API",
+        }
+        for hour in range(24)
+    ],
+)
+@patch(
+    "app.main.repository.get_state",
+    return_value={
+        **SAMPLE_PROFILE_SEP14[56],
+        "timestamp": datetime(2018, 9, 14, 14, 0),
+    },
+)
+@patch(
+    "app.main.repository.get_building",
+    return_value={
+        **SAMPLE_BUILDING,
+        "roof_area_ft2": 35000.0,
+        "building_type": "ACADEMIC",
+        "archetype": "research/laboratory",
+        "data_confidence": "reported-electricity",
+        "annual_electricity_kwh": 3966580.33,
+        "electricity_source": "City of Philadelphia 2024 Building Energy Benchmarking",
+        "model_notes": "ComStock load shape anchored to annual electricity.",
+    },
+)
+def test_ask_temple_twin_grounds_cortex_in_tiger_context(
+    mock_building,
+    mock_state,
+    mock_weather,
+    mock_complete,
+):
+    response = client.post(
+        "/api/ask-temple-twin",
+        json={
+            "question": "Why is SERC using so much energy right now?",
+            "building_slug": "serc",
+            "date": "2018-09-14",
+            "hour": 14,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["building_slug"] == "serc"
+    assert body["answer"].startswith("SERC demand")
+    assert body["date"] == "2018-09-14"
+    assert body["hour"] == 14
+
+    question, context = mock_complete.call_args.args
+    assert question == "Why is SERC using so much energy right now?"
+    assert context["scope"] == "building"
+    assert context["building"]["name"] == SAMPLE_BUILDING["name"]
+    assert context["state"]["demand_kw"] == SAMPLE_PROFILE_SEP14[56]["demand_kw"]
+    assert context["weather"]["temperature_f"] == 78.0
+
+
+@patch("app.main.complete_with_cortex", return_value="Campus demand is concentrated in the highest-load buildings.")
+@patch(
+    "app.main.repository.list_buildings",
+    return_value=[
+        {"slug": "serc", "name": "Science Education and Research Center (SERC)"},
+        {"slug": "beury", "name": "Beury Hall"},
+    ],
+)
+@patch(
+    "app.main.repository.get_all_profiles",
+    return_value=[
+        {
+            "slug": "serc",
+            "timestamp": datetime(2018, 9, 14, 14, 0),
+            "hour": 14,
+            "demand_kw": 500.0,
+            "energy_intensity_w_ft2": 2.0,
+        },
+        {
+            "slug": "beury",
+            "timestamp": datetime(2018, 9, 14, 14, 0),
+            "hour": 14,
+            "demand_kw": 300.0,
+            "energy_intensity_w_ft2": 1.5,
+        },
+    ],
+)
+def test_ask_temple_twin_can_answer_campus_question(
+    mock_profiles,
+    mock_buildings,
+    mock_complete,
+):
+    response = client.post(
+        "/api/ask-temple-twin",
+        json={
+            "question": "Which buildings are driving campus load?",
+            "date": "2018-09-14",
+            "hour": 14,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["building_slug"] is None
+
+    _, context = mock_complete.call_args.args
+    assert context["scope"] == "campus"
+    assert context["campus_demand_kw"] == 800.0
+    assert context["highest_demand_buildings"][0]["slug"] == "serc"
