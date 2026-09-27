@@ -1,4 +1,4 @@
-"""Open-Meteo historical weather ingestion and bounded HVAC adjustment."""
+"""Open-Meteo historical weather ingestion for Temple Twin."""
 
 from __future__ import annotations
 
@@ -9,12 +9,6 @@ from urllib.parse import urlencode
 from urllib.request import urlopen
 
 from app.config.model_parameters import (
-    COOLING_BALANCE_F,
-    COOLING_BETA_PER_F,
-    HEATING_BALANCE_F,
-    HEATING_BETA_PER_F,
-    HVAC_WEATHER_FACTOR_MAX,
-    HVAC_WEATHER_FACTOR_MIN,
     SIMULATION_WEATHER_HOURS,
     TEMPLE_LATITUDE,
     TEMPLE_LONGITUDE,
@@ -79,18 +73,6 @@ def fetch_open_meteo_weather() -> list[WeatherHour]:
     return rows
 
 
-def weather_factor(temperature_f: float) -> float:
-    """Return a modest bounded multiplier applied to HVAC only."""
-    cooling_degree = max(temperature_f - COOLING_BALANCE_F, 0.0)
-    heating_degree = max(HEATING_BALANCE_F - temperature_f, 0.0)
-    factor = (
-        1.0
-        + COOLING_BETA_PER_F * cooling_degree
-        + HEATING_BETA_PER_F * heating_degree
-    )
-    return min(max(factor, HVAC_WEATHER_FACTOR_MIN), HVAC_WEATHER_FACTOR_MAX)
-
-
 def interpolate_temperature(weather: list[WeatherHour], timestamp: str) -> float:
     """Interpolate hourly weather across the continuous simulation window."""
     if not weather:
@@ -113,10 +95,6 @@ def interpolate_temperature(weather: list[WeatherHour], timestamp: str) -> float
         return current
     next_temp = weather[index + 1].temperature_f
     return current + (next_temp - current) * fraction
-
-
-def adjust_hvac_kw(hvac_kw: float, temperature_f: float) -> float:
-    return max(hvac_kw * weather_factor(temperature_f), 0.0)
 
 
 def weather_with_fallback(fetch_fn, cached_fn):
