@@ -1,53 +1,60 @@
-# Vultr deployment — Milestone 9
+# Temple Twin production deployment
 
-Milestone 9 deploys Temple Twin to a single Vultr Ubuntu server using Docker Compose.
-
-Architecture:
+Temple Twin is designed to run on one Ubuntu server with Docker Compose.
 
 ```text
-Internet :80
-    |
-    v
-Nginx / React / Cesium
-    |
-    +-- /api/*  ---> FastAPI :8000 (private Docker network)
-    +-- /health ---> FastAPI :8000
+Browser
+  |
+  | HTTP/HTTPS
+  v
+Nginx + React + Cesium
+  |
+  +-- /api/*  ---> FastAPI :8000 (private Docker network)
+  +-- /health ---> FastAPI :8000
                        |
-                       v
-                   Tiger Cloud
+                       +--> Tiger Data / PostgreSQL
+                       |
+                       +--> Snowflake Cortex
 ```
 
-The FastAPI container is not exposed directly to the public internet.
+FastAPI is not exposed directly to the public internet. The frontend uses same-origin
+`/api/*` requests in production, so nginx forwards API traffic internally.
+
+## Before creating the server
+
+Have these values ready:
+
+- `VITE_CESIUM_ION_TOKEN`
+- `DATABASE_URL`
+- `SNOWFLAKE_ACCOUNT`
+- `SNOWFLAKE_USER`
+- `SNOWFLAKE_PASSWORD`
+- `SNOWFLAKE_WAREHOUSE`
+- `SNOWFLAKE_DATABASE`
+- `SNOWFLAKE_SCHEMA`
+- `SNOWFLAKE_ROLE`
+- `SNOWFLAKE_CORTEX_MODEL`
+
+For production, use the `TEMPLE_TWIN_APP` role defined in
+`deploy/snowflake_role.sql` instead of `ACCOUNTADMIN`.
 
 ## 1. Create the Vultr server
 
-Create a regular Vultr Cloud Compute instance with Ubuntu 24.04 LTS.
+Create a regular Vultr Cloud Compute instance with Ubuntu 24.04 LTS and add your SSH
+key. Temple Twin does not need a GPU; Cesium rendering happens in the user's browser.
 
-For this hackathon app, a small general-purpose instance is sufficient. The app
-does not require a GPU because Cesium rendering happens in the user's browser.
+Allow TCP 22, 80, and eventually 443.
 
-Add your SSH key when creating the instance.
-
-## 2. Firewall
-
-Allow:
-
-- TCP 22 for SSH
-- TCP 80 for HTTP
-
-HTTPS/443 is Milestone 10.
-
-If using UFW on the server:
+If using UFW:
 
 ```bash
 sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
 sudo ufw enable
 ```
 
-## 3. Install Docker
-
-Follow Vultr's Ubuntu 24.04 Docker instructions. The required packages are:
+## 2. Install Docker
 
 ```bash
 sudo apt update
@@ -67,77 +74,137 @@ sudo systemctl enable --now docker
 sudo usermod -aG docker "$USER"
 ```
 
-Log out and SSH back in after adding yourself to the docker group.
+Log out and SSH back in after adding yourself to the Docker group.
 
-## 4. Clone Temple Twin
+## 3. Clone and configure
 
 ```bash
 git clone https://github.com/ritwiksi/TempleTwin.git
 cd TempleTwin
-```
-
-## 5. Configure production secrets
-
-```bash
 cp deploy/vultr.env.example .env
 nano .env
 ```
 
-Fill in:
+Fill in every required value. Keep:
 
 ```env
-VITE_CESIUM_ION_TOKEN=...
-DATABASE_URL=postgresql://...?...sslmode=require
+ENABLE_DIAGNOSTICS=false
 ```
 
-Do not commit this file.
+The populated `.env` must never be committed.
 
-The Cesium token is compiled into the browser application, so scope/restrict that
-token in Cesium ion. The Tiger connection string stays server-side only.
-
-## 6. Deploy
+## 4. Deploy
 
 ```bash
 chmod +x deploy/deploy.sh
 ./deploy/deploy.sh
 ```
 
-## 7. Verify
-
-From the server:
+Useful checks:
 
 ```bash
-curl http://127.0.0.1/health
-curl http://127.0.0.1/api/buildings/serc/profile
+docker compose ps
+docker compose logs --tail=100 backend
+docker compose logs --tail=100 frontend
+curl -f http://127.0.0.1/health
+curl -f http://127.0.0.1/api/simulation
 ```
 
-From your computer open:
+Then open:
 
 ```text
 http://YOUR_VULTR_PUBLIC_IP
 ```
 
-Then verify:
+Verify Reality mode, Energy mode, building search, timeline playback, interventions,
+and Ask Temple Twin.
 
-1. Temple campus loads.
-2. Reality / Energy works.
-3. Energy profiles load from Tiger.
-4. Building details open.
-5. LED/HVAC/solar interventions update the selected building.
-6. Refreshing the public IP still loads the app.
+## 5. Verify external services from Vultr
 
-## Updating the deployment
+Tiger:
 
-After future commits:
+```bash
+curl -f http://127.0.0.1/health
+```
+
+Ask Temple Twin should be tested through the app. If troubleshooting is necessary,
+temporarily set `ENABLE_DIAGNOSTICS=true`, rebuild/restart, and request:
+
+```text
+/api/ask-temple-twin/status
+```
+
+Set it back to `false` afterward.
+
+## 6. Domain and HTTPS
+
+Point an A record such as `templetwin.example.com` to the Vultr IPv4 address.
+
+For the simplest hackathon setup, install Certbot on the host and terminate HTTPS
+in a host-level reverse proxy, or adapt the nginx container to mount certificates.
+Do not request a certificate until DNS resolves to the server.
+
+Host-level nginx/Certbot option:
+
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
+
+If using host nginx, change the Docker frontend port mapping from `80:80` to a
+loopback-only high port such as `127.0.0.1:8080:80`, then proxy the domain to
+`http://127.0.0.1:8080`.
+
+Example host nginx site:
+
+```nginx
+server {
+    listen 80;
+    server_name templetwin.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Then:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+sudo certbot --nginx -d templetwin.example.com
+```
+
+After HTTPS is active, verify:
+
+- frontend loads over HTTPS;
+- `/health` works;
+- `/api/*` works on the same origin;
+- Cesium/Google Photorealistic 3D Tiles render;
+- Tiger-backed energy data loads;
+- Ask Temple Twin returns a Cortex response.
+
+## Updating production
 
 ```bash
 cd TempleTwin
-git pull
+git pull origin main
 ./deploy/deploy.sh
 ```
 
-## Milestone 9 boundaries
+## Production smoke test
 
-This milestone intentionally uses HTTP on the server IP.
-
-Custom domain + HTTPS are Milestone 10.
+1. Open Reality mode and reset the camera.
+2. Switch to Energy.
+3. Search for SERC.
+4. Open a building by direct map click.
+5. Move the timeline across midnight and several days.
+6. Toggle LED, HVAC, solar, and all three together.
+7. Confirm solar panels appear/disappear.
+8. Ask Temple Twin a campus-wide question.
+9. Ask Temple Twin a building-specific question.
+10. Refresh the page and repeat one API-backed interaction.
