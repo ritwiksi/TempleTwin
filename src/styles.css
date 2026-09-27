@@ -553,6 +553,27 @@ input {
   background: var(--accent);
 }
 
+
+.intervention-impact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -4px;
+}
+
+.intervention-impact-row span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 5px 8px;
+  border: 1px solid rgba(79, 125, 104, .18);
+  border-radius: 8px;
+  background: rgba(220, 233, 226, .45);
+  color: var(--accent);
+  font-size: 8px;
+  line-height: 1.2;
+}
+
 .detail-metrics {
   border-top: 1px solid var(--border-soft);
 }
@@ -602,10 +623,18 @@ input {
   stroke-width: 1;
 }
 
+.chart-baseline-line {
+  fill: none;
+  stroke: rgba(88, 117, 103, .42);
+  stroke-width: 1.1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
 .chart-line {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 1.4;
+  stroke-width: 1.7;
   vector-effect: non-scaling-stroke;
 }
 
