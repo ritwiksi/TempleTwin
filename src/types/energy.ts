@@ -12,6 +12,13 @@ export type EnergyState = {
   grid_import_kw: number
   energy_intensity_w_ft2: number
   carbon_kg: number | null
+  led_reduction_fraction?: number
+  led_reference_lpd_w_ft2?: number
+  led_target_lpd_w_ft2?: number
+  led_target_category?: string
+  hvac_reduction_fraction?: number
+  hvac_controls_target_savings_fraction?: number
+  hvac_controls_achieved_savings_fraction?: number
 }
 
 export type BuildingProfileMap = Record<BuildingSlug, EnergyState[]>
