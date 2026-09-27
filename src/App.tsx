@@ -342,6 +342,38 @@ function App() {
   }, [isPlaying, simulation])
 
   useEffect(() => {
+    if (!simulation || !currentDate || currentDayIndex < 64) return
+
+    const date = new Date(`${currentDate}T00:00:00`)
+    const end = new Date(`${simulation.end_date}T00:00:00`)
+    if (date >= end) return
+
+    date.setDate(date.getDate() + 1)
+    const nextDate = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-')
+
+    if (dayCacheRef.current.has(nextDate)) return
+
+    void Promise.all([
+      fetchAllProfiles(nextDate),
+      fetchWeather(nextDate),
+    ])
+      .then(([nextProfiles, nextWeather]) => {
+        dayCacheRef.current.set(nextDate, {
+          profiles: nextProfiles,
+          weather: nextWeather,
+        })
+      })
+      .catch((err) => {
+        console.warn(`Temple Twin prefetch failed for ${nextDate}`, err)
+      })
+  }, [simulation, currentDate, currentDayIndex])
+
+
+  useEffect(() => {
     if (!viewerRef.current) return
 
     const token = import.meta.env.VITE_CESIUM_ION_TOKEN
