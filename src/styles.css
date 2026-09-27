@@ -1133,3 +1133,50 @@ input {
   background: rgba(255, 245, 245, .82);
   color: #8d5454;
 }
+
+
+/* Standalone Ask Temple Twin control */
+
+.ask-twin-shell {
+  position: absolute;
+  z-index: 18;
+  top: 94px;
+  left: 22px;
+  width: 300px;
+}
+
+.ask-twin-shell .ask-twin {
+  margin-top: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+.ask-twin-shell .ask-twin-toggle {
+  min-height: 46px;
+  padding: 10px 13px;
+}
+
+.ask-twin-shell .ask-twin-body {
+  padding: 0 13px 13px;
+}
+
+@media (max-width: 860px) {
+  .ask-twin-shell {
+    top: 82px;
+    left: 12px;
+    width: 270px;
+  }
+}
+
+@media (max-width: 650px) {
+  .ask-twin-shell {
+    top: 66px;
+    left: 8px;
+    width: min(290px, calc(100% - 16px));
+  }
+}
