@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create/update Tiger schema, cache weather, and seed weather-adjusted 15-minute profiles."""
+"""Create/update Tiger schema, cache weather, and seed calibrated 15-minute profiles."""
 
 from __future__ import annotations
 
@@ -22,9 +22,7 @@ from app.database import get_connection
 from app.services.profile_model import annual_target_kwh, generate_simulation_profile
 from app.services.weather_service import (
     WeatherHour,
-    adjust_hvac_kw,
     fetch_open_meteo_weather,
-    interpolate_temperature,
     weather_with_fallback,
 )
 
@@ -160,10 +158,11 @@ def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]
 
             insert_rows = []
             for row in rows:
-                temperature_f = interpolate_temperature(weather, row.timestamp)
-                adjusted_hvac_kw = adjust_hvac_kw(row.hvac_kw, temperature_f)
+                # ComStock's 2018 profile already contains weather-responsive HVAC
+                # behavior. Preserve that modeled HVAC load rather than applying a
+                # second, unsourced temperature multiplier.
                 demand_kw = (
-                    adjusted_hvac_kw
+                    row.hvac_kw
                     + row.lighting_kw
                     + row.process_kw
                     + row.other_kw
@@ -175,7 +174,7 @@ def seed_profiles(conn, building_ids: dict[str, int], weather: list[WeatherHour]
                     (
                         row.timestamp,
                         building_ids[building.slug],
-                        adjusted_hvac_kw,
+                        row.hvac_kw,
                         row.lighting_kw,
                         row.process_kw,
                         row.other_kw,
