@@ -8,6 +8,7 @@ from app.services.intervention_model import apply_interventions
 from app.services.snowflake_service import (
     SnowflakeConfigurationError,
     complete_with_cortex,
+    connection_diagnostics,
 )
 from app.config.model_parameters import (
     INTERVAL_MINUTES,
@@ -155,6 +156,19 @@ def simulate(
         hvac=request.hvac,
         solar=request.solar,
     )
+
+
+@app.get("/api/ask-temple-twin/status")
+def ask_temple_twin_status():
+    try:
+        return connection_diagnostics()
+    except SnowflakeConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Snowflake diagnostic failed: {exc}",
+        )
 
 
 class AskTempleTwinRequest(BaseModel):
