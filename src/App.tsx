@@ -183,6 +183,9 @@ function App() {
   const energyEntitiesRef = useRef<Map<BuildingSlug, Entity>>(new Map())
   const solarEntitiesRef = useRef<Map<BuildingSlug, Entity[]>>(new Map())
   const labelEntitiesRef = useRef<Entity[]>([])
+  const dayCacheRef = useRef(
+    new Map<string, { profiles: BuildingProfileMap; weather: WeatherHour[] }>(),
+  )
   const modeRef = useRef<Mode>('reality')
 
   const [viewerReady, setViewerReady] = useState(false)
@@ -195,7 +198,7 @@ function App() {
   const [interventions, setInterventions] = useState<
     Record<BuildingSlug, InterventionFlags>
   >({})
-  const [isSimulating, setIsSimulating] = useState(false)
+  const [simulatingSlug, setSimulatingSlug] = useState<BuildingSlug | null>(null)
   const [buildings, setBuildings] = useState<BuildingMetadata[]>([])
   const [weather, setWeather] = useState<WeatherHour[] | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<BuildingSlug | null>(null)
@@ -265,30 +268,59 @@ function App() {
     let cancelled = false
 
     const loadDay = async () => {
-      setIsDataLoading(true)
-      setDataError(null)
+      const cached = dayCacheRef.current.get(currentDate)
+      if (cached) {
+        setProfiles(cached.profiles)
+        setWeather(cached.weather)
+        setDataError(null)
+        setIsDataLoading(false)
+        return
+      }
+
+      setIsDataLoading(profiles === null)
       try {
         const [profileData, weatherData] = await Promise.all([
           fetchAllProfiles(currentDate),
           fetchWeather(currentDate),
         ])
 
+        if (cancelled) return
+
+        dayCacheRef.current.set(currentDate, {
+          profiles: profileData,
+          weather: weatherData,
+        })
+        setProfiles(profileData)
+        setWeather(weatherData)
+        setDataError(null)
+
         const activeScenarios: Partial<Record<BuildingSlug, EnergyState[]>> = {}
         for (const [slug, flags] of Object.entries(interventions)) {
           if (flags.led || flags.hvac || flags.solar) {
-            activeScenarios[slug] = await simulateInterventions(slug, flags, currentDate)
+            try {
+              activeScenarios[slug] = await simulateInterventions(
+                slug,
+                flags,
+                currentDate,
+              )
+            } catch (err) {
+              console.warn(
+                `Intervention refresh failed for ${slug} on ${currentDate}`,
+                err,
+              )
+            }
           }
         }
-
-        if (!cancelled) {
-          setProfiles(profileData)
-          setWeather(weatherData)
-          setScenarioProfiles(activeScenarios)
-        }
+        if (!cancelled) setScenarioProfiles(activeScenarios)
       } catch (err) {
         console.error('Temple Twin daily data fetch failed:', err)
         if (!cancelled) {
-          setDataError(`Energy data could not be loaded for ${currentDate}.`)
+          setIsPlaying(false)
+          // Keep the last successfully rendered campus state during transient
+          // date-load failures. Only show the full error when we have no data yet.
+          if (!profiles) {
+            setDataError(`Energy data could not be loaded for ${currentDate}.`)
+          }
         }
       } finally {
         if (!cancelled) setIsDataLoading(false)
@@ -689,21 +721,26 @@ function App() {
     slug: BuildingSlug,
     key: keyof InterventionFlags,
   ) => {
-    const currentFlags = interventions[slug] ?? EMPTY_INTERVENTIONS
-    const nextFlags = { ...currentFlags, [key]: !currentFlags[key] }
+    if (!currentDate || simulatingSlug === slug) return
 
-    setIsSimulating(true)
-    setDataError(null)
+    const previousFlags = interventions[slug] ?? EMPTY_INTERVENTIONS
+    const nextFlags = { ...previousFlags, [key]: !previousFlags[key] }
+
+    // Update the toggle immediately so the control never feels dead.
+    setInterventions((current) => ({ ...current, [slug]: nextFlags }))
+    setSimulatingSlug(slug)
+
     try {
-      if (!currentDate) return
       const simulated = await simulateInterventions(slug, nextFlags, currentDate)
-      setInterventions((current) => ({ ...current, [slug]: nextFlags }))
       setScenarioProfiles((current) => ({ ...current, [slug]: simulated }))
     } catch (err) {
       console.error('Temple Twin intervention simulation failed:', err)
-      setDataError('Could not update the intervention scenario. Check the FastAPI server.')
+      setInterventions((current) => ({ ...current, [slug]: previousFlags }))
+      setDataError(
+        `Could not update ${key.toUpperCase()} for this building. Retry the intervention.`,
+      )
     } finally {
-      setIsSimulating(false)
+      setSimulatingSlug(null)
     }
   }
 
@@ -776,7 +813,7 @@ function App() {
                 profile={selectedProfile}
                 currentIndex={currentDayIndex}
                 interventions={interventions[selectedBuilding.slug] ?? EMPTY_INTERVENTIONS}
-                isSimulating={isSimulating}
+                isSimulating={simulatingSlug === selectedBuilding.slug}
                 onToggle={(key) => void toggleIntervention(selectedBuilding.slug, key)}
                 onClose={() => setSelectedSlug(null)}
               />
