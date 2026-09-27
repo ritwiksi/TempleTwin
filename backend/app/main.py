@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -160,6 +162,8 @@ def simulate(
 
 @app.get("/api/ask-temple-twin/status")
 def ask_temple_twin_status():
+    if os.getenv("ENABLE_DIAGNOSTICS", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=404, detail="Not found")
     try:
         return connection_diagnostics()
     except SnowflakeConfigurationError as exc:
