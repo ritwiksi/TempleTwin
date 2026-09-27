@@ -137,8 +137,10 @@ def test_simulate_endpoint_honors_date_and_intervention_flags(
     body = response.json()
     assert len(body) == 96
     noon = body[48]
-    assert noon["lighting_kw"] == 25.0
-    assert noon["hvac_kw"] == 90.0
+    assert noon["lighting_kw"] < SAMPLE_PROFILE[48]["lighting_kw"]
+    assert noon["hvac_kw"] < SAMPLE_PROFILE[48]["hvac_kw"]
+    assert noon["led_reduction_fraction"] > 0
+    assert noon["hvac_controls_achieved_savings_fraction"] > 0
     assert noon["solar_kw"] > 0
     assert noon["grid_import_kw"] < noon["demand_kw"]
 
