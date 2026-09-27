@@ -87,11 +87,10 @@ export function BuildingDetailPanel({
           type="button"
           className={`intervention-toggle ${interventions.led ? 'active' : ''}`}
           onClick={() => onToggle('led')}
-          disabled={isSimulating}
         >
           <span>
             <strong>LED retrofit</strong>
-            <small>Lighting load only · 50% scenario reduction</small>
+            <small>Lighting ↓ 50% · lighting load only</small>
           </span>
           <span className="toggle-track"><span /></span>
         </button>
@@ -100,11 +99,10 @@ export function BuildingDetailPanel({
           type="button"
           className={`intervention-toggle ${interventions.hvac ? 'active' : ''}`}
           onClick={() => onToggle('hvac')}
-          disabled={isSimulating}
         >
           <span>
             <strong>HVAC efficiency</strong>
-            <small>HVAC load only · 10% scenario reduction</small>
+            <small>HVAC ↓ 10% · HVAC load only</small>
           </span>
           <span className="toggle-track"><span /></span>
         </button>
@@ -113,7 +111,6 @@ export function BuildingDetailPanel({
           type="button"
           className={`intervention-toggle ${interventions.solar ? 'active' : ''}`}
           onClick={() => onToggle('solar')}
-          disabled={isSimulating}
         >
           <span>
             <strong>Rooftop solar</strong>
