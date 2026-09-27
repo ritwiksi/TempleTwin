@@ -74,6 +74,11 @@ export function AskTempleTwin({
             ))}
           </div>
 
+          <div className="ask-twin-response">
+            {answer && <div className="ask-twin-answer">{answer}</div>}
+            {error && <div className="ask-twin-error">{error}</div>}
+          </div>
+
           <form className="ask-twin-form" onSubmit={(event) => void submitQuestion(event)}>
             <input
               type="text"
@@ -91,9 +96,6 @@ export function AskTempleTwin({
               {isSending ? '…' : '→'}
             </button>
           </form>
-
-          {answer && <div className="ask-twin-answer">{answer}</div>}
-          {error && <div className="ask-twin-error">{error}</div>}
         </div>
       )}
     </section>
