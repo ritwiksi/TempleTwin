@@ -5,6 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import check_connection
 from app import repository
 from app.services.intervention_model import apply_interventions
+from app.services.snowflake_service import (
+    SnowflakeConfigurationError,
+    complete_with_cortex,
+)
 from app.config.model_parameters import (
     INTERVAL_MINUTES,
     INTERVALS_PER_DAY,
@@ -151,3 +155,166 @@ def simulate(
         hvac=request.hvac,
         solar=request.solar,
     )
+
+
+class AskTempleTwinRequest(BaseModel):
+    question: str
+    building_slug: str | None = None
+    date: str = SIMULATION_START_DATE
+    hour: int = 12
+
+
+def _resolve_building_slug(question: str, explicit_slug: str | None) -> str | None:
+    if explicit_slug:
+        return explicit_slug
+
+    query = question.lower()
+    for item in repository.list_buildings():
+        slug = str(item["slug"])
+        name = str(item["name"]).replace("\n", " ").strip().lower()
+        if slug.lower() in query or name in query:
+            return slug
+
+        short_name = name.replace(" building", "").replace(" hall", "")
+        if len(short_name) >= 4 and short_name in query:
+            return slug
+
+    return None
+
+
+def _campus_snapshot(date: str, hour: int) -> dict:
+    rows = repository.get_all_profiles("baseline", date)
+    hour_rows = [
+        dict(row)
+        for row in rows
+        if int(row["hour"]) == hour
+        and getattr(row["timestamp"], "minute", 0) == 0
+    ]
+    if not hour_rows:
+        hour_rows = [
+            dict(row)
+            for row in rows
+            if int(row["hour"]) == hour
+        ][:50]
+
+    total_demand_kw = sum(float(row["demand_kw"]) for row in hour_rows)
+    top = sorted(
+        hour_rows,
+        key=lambda row: float(row["demand_kw"]),
+        reverse=True,
+    )[:5]
+
+    names = {
+        item["slug"]: item["name"]
+        for item in repository.list_buildings()
+    }
+
+    return {
+        "scope": "campus",
+        "date": date,
+        "hour": hour,
+        "building_count": len(hour_rows),
+        "campus_demand_kw": round(total_demand_kw, 2),
+        "highest_demand_buildings": [
+            {
+                "slug": row["slug"],
+                "name": names.get(row["slug"], row["slug"]),
+                "demand_kw": round(float(row["demand_kw"]), 2),
+                "energy_intensity_w_ft2": round(
+                    float(row["energy_intensity_w_ft2"]), 3
+                ),
+            }
+            for row in top
+        ],
+    }
+
+
+def _building_context(slug: str, date: str, hour: int) -> dict:
+    building_row = repository.get_building(slug)
+    if building_row is None:
+        raise HTTPException(status_code=404, detail="Building not found")
+
+    state_row = repository.get_state(slug, hour, "baseline", date)
+    if state_row is None:
+        raise HTTPException(status_code=404, detail="Building state not found")
+
+    weather_rows = repository.get_weather(date)
+    weather_row = next(
+        (
+            dict(row)
+            for row in weather_rows
+            if getattr(row["timestamp"], "hour", -1) == hour
+        ),
+        None,
+    )
+
+    state = dict(state_row)
+    return {
+        "scope": "building",
+        "date": date,
+        "hour": hour,
+        "building": {
+            "slug": building_row["slug"],
+            "name": building_row["name"],
+            "building_type": building_row["building_type"],
+            "floor_area_ft2": building_row["floor_area_ft2"],
+            "roof_area_ft2": building_row.get("roof_area_ft2"),
+            "archetype": building_row.get("archetype"),
+            "data_confidence": building_row.get("data_confidence"),
+            "annual_electricity_kwh": building_row.get("annual_electricity_kwh"),
+            "electricity_source": building_row.get("electricity_source"),
+            "model_notes": building_row.get("model_notes"),
+        },
+        "state": {
+            "timestamp": state["timestamp"],
+            "demand_kw": state["demand_kw"],
+            "hvac_kw": state["hvac_kw"],
+            "lighting_kw": state["lighting_kw"],
+            "process_kw": state["process_kw"],
+            "other_kw": state["other_kw"],
+            "grid_import_kw": state["grid_import_kw"],
+            "energy_intensity_w_ft2": state["energy_intensity_w_ft2"],
+            "carbon_kg": state["carbon_kg"],
+        },
+        "weather": weather_row,
+        "model_assumptions": {
+            "interval_minutes": INTERVAL_MINUTES,
+            "profile_source": "NREL ComStock Philadelphia County",
+            "weather_source": "Open-Meteo historical weather",
+            "carbon_source": "EPA eGRID RFCE",
+        },
+    }
+
+
+@app.post("/api/ask-temple-twin")
+def ask_temple_twin(request: AskTempleTwinRequest):
+    question = request.question.strip()
+    if not question:
+        raise HTTPException(status_code=422, detail="Question cannot be empty")
+    if request.hour < 0 or request.hour > 23:
+        raise HTTPException(status_code=422, detail="Hour must be between 0 and 23")
+
+    slug = _resolve_building_slug(question, request.building_slug)
+    context = (
+        _building_context(slug, request.date, request.hour)
+        if slug
+        else _campus_snapshot(request.date, request.hour)
+    )
+
+    try:
+        answer = complete_with_cortex(question, context)
+    except SnowflakeConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Snowflake Cortex request failed: {exc}",
+        )
+
+    return {
+        "answer": answer,
+        "model": "llama3.1-8b",
+        "building_slug": slug,
+        "date": request.date,
+        "hour": request.hour,
+    }
