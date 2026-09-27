@@ -11,10 +11,16 @@ type Props = {
   onClose: () => void
 }
 
-function buildPath(values: number[], width: number, height: number): string {
+function buildPath(
+  values: number[],
+  width: number,
+  height: number,
+  minValue?: number,
+  maxValue?: number,
+): string {
   if (values.length === 0) return ''
-  const min = Math.min(...values)
-  const max = Math.max(...values)
+  const min = minValue ?? Math.min(...values)
+  const max = maxValue ?? Math.max(...values)
   const range = Math.max(max - min, 1)
   return values
     .map((value, index) => {
@@ -49,10 +55,13 @@ export function BuildingDetailPanel({
   const width = 280
   const height = 92
   const values = profile.map((row) => row.demand_kw)
-  const path = buildPath(values, width, height)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
+  const baselineValues = baselineProfile.map((row) => row.demand_kw)
+  const combinedValues = [...values, ...baselineValues]
+  const min = Math.min(...combinedValues)
+  const max = Math.max(...combinedValues)
   const range = Math.max(max - min, 1)
+  const path = buildPath(values, width, height, min, max)
+  const baselinePath = buildPath(baselineValues, width, height, min, max)
   const markerX = (currentIndex / (profile.length - 1)) * width
   const markerY = height - ((current.demand_kw - min) / range) * height
 
@@ -114,6 +123,14 @@ export function BuildingDetailPanel({
         </button>
       </div>
 
+      {(interventions.led || interventions.hvac || interventions.solar) && (
+        <div className="intervention-impact-row" aria-label="Active intervention impacts">
+          {interventions.led && <span>Lighting ↓ 50%</span>}
+          {interventions.hvac && <span>HVAC ↓ 10%</span>}
+          {interventions.solar && <span>Grid import ↓ · carbon avoided</span>}
+        </div>
+      )}
+
       <div className="detail-metrics">
         <div className="metric-line">
           <span>Current demand</span>
@@ -152,6 +169,9 @@ export function BuildingDetailPanel({
         </div>
         <svg className="load-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Current-day electricity demand curve">
           <line x1="0" y1={height} x2={width} y2={height} className="chart-axis" />
+          {(interventions.led || interventions.hvac) && (
+            <path d={baselinePath} className="chart-baseline-line" />
+          )}
           <path d={path} className="chart-line" />
           <line x1={markerX} y1="0" x2={markerX} y2={height} className="chart-marker-line" />
           <circle cx={markerX} cy={markerY} r="3.5" className="chart-marker" />
