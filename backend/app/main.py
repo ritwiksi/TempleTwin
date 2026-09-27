@@ -379,6 +379,17 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
                     "grid_import_kw": round(float(scenario_row["grid_import_kw"]), 2),
                     "solar_kw": round(float(scenario_row["solar_kw"]), 2),
                     "carbon_kg_per_interval": round(float(scenario_row["carbon_kg"]), 3),
+                    "led_reduction_fraction": scenario_row.get("led_reduction_fraction"),
+                    "led_reference_lpd_w_ft2": scenario_row.get("led_reference_lpd_w_ft2"),
+                    "led_target_lpd_w_ft2": scenario_row.get("led_target_lpd_w_ft2"),
+                    "led_target_category": scenario_row.get("led_target_category"),
+                    "hvac_reduction_fraction": scenario_row.get("hvac_reduction_fraction"),
+                    "hvac_controls_target_savings_fraction": scenario_row.get(
+                        "hvac_controls_target_savings_fraction"
+                    ),
+                    "hvac_controls_achieved_savings_fraction": scenario_row.get(
+                        "hvac_controls_achieved_savings_fraction"
+                    ),
                 }
 
     return {
