@@ -307,27 +307,24 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
     if building_row is None:
         raise HTTPException(status_code=404, detail="Building not found")
 
-    state_row = repository.get_state(slug, hour, "baseline", date)
-
     try:
         profile_rows = _daily_building_profile(slug, date)
     except Exception:
         profile_rows = []
 
-    if state_row is None and profile_rows:
-        state_row = next(
-            (
-                row
-                for row in profile_rows
-                if int(row["hour"]) == hour
-                and getattr(row["timestamp"], "minute", 0) == 0
-            ),
-            next((row for row in profile_rows if int(row["hour"]) == hour), None),
-        )
+    state_row = next(
+        (
+            row
+            for row in profile_rows
+            if int(row["hour"]) == hour
+            and getattr(row["timestamp"], "minute", 0) == 0
+        ),
+        next((row for row in profile_rows if int(row["hour"]) == hour), None),
+    )
     if state_row is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Building state not found for {slug} on {date} at hour {hour}",
+            detail=f"Building profile not found for {slug} on {date} at hour {hour}",
         )
 
     weather_rows = repository.get_weather(date)
