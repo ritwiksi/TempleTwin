@@ -449,8 +449,8 @@ function App() {
         viewer.camera.flyTo({
           destination: Cartesian3.fromDegrees(-75.1554, 39.9813, 1120),
           orientation: {
-            heading: 0,
-            pitch: CesiumMath.toRadians(-90),
+            heading: CesiumMath.toRadians(28),
+            pitch: CesiumMath.toRadians(-39),
             roll: 0,
           },
           duration: 2.2,
@@ -734,8 +734,8 @@ function App() {
     viewer.camera.flyTo({
       destination: Cartesian3.fromDegrees(-75.1554, 39.9813, 1120),
       orientation: {
-        heading: 0,
-        pitch: CesiumMath.toRadians(-90),
+        heading: CesiumMath.toRadians(28),
+        pitch: CesiumMath.toRadians(-39),
         roll: 0,
       },
       duration: 1.0,
@@ -1001,10 +1001,8 @@ function App() {
               {isPlaying ? '❚❚' : '▶'}
             </button>
             <div className="timeline-main">
-              <div className="timeline-header">
-                <span>{startDateLabel}</span>
+              <div className="timeline-header timeline-header-centered">
                 <strong>{dateLabel} · {timeLabel}</strong>
-                <span>{endDateLabel}</span>
               </div>
               <input
                 type="range"
