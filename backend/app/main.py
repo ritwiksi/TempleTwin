@@ -216,12 +216,15 @@ def _campus_snapshot(date: str, hour: int) -> dict:
         ][:50]
 
     total_demand_kw = sum(float(row["demand_kw"]) for row in hour_rows)
-    total_grid_import_kw = sum(float(row["grid_import_kw"]) for row in hour_rows)
+    total_grid_import_kw = sum(
+        float(row.get("grid_import_kw", row["demand_kw"]))
+        for row in hour_rows
+    )
     end_use_breakdown_kw = {
-        "hvac": round(sum(float(row["hvac_kw"]) for row in hour_rows), 2),
-        "lighting": round(sum(float(row["lighting_kw"]) for row in hour_rows), 2),
-        "process": round(sum(float(row["process_kw"]) for row in hour_rows), 2),
-        "other": round(sum(float(row["other_kw"]) for row in hour_rows), 2),
+        "hvac": round(sum(float(row.get("hvac_kw", 0.0)) for row in hour_rows), 2),
+        "lighting": round(sum(float(row.get("lighting_kw", 0.0)) for row in hour_rows), 2),
+        "process": round(sum(float(row.get("process_kw", 0.0)) for row in hour_rows), 2),
+        "other": round(sum(float(row.get("other_kw", 0.0)) for row in hour_rows), 2),
     }
     top = sorted(
         hour_rows,
@@ -266,7 +269,12 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
         raise HTTPException(status_code=404, detail="Building state not found")
 
     weather_rows = repository.get_weather(date)
-    profile_rows = repository.get_profile(slug, "baseline", date)
+    try:
+        profile_rows = repository.get_profile(slug, "baseline", date)
+    except Exception:
+        # Ask Temple Twin can still explain the current state even if the optional
+        # intervention snapshot cannot be assembled.
+        profile_rows = []
     weather_row = next(
         (
             dict(row)
