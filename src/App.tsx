@@ -792,6 +792,8 @@ function App() {
   ) => {
     if (!currentDate || simulatingSlug === slug) return
 
+    setIsPlaying(false)
+
     const previousFlags = interventions[slug] ?? EMPTY_INTERVENTIONS
     const nextFlags = { ...previousFlags, [key]: !previousFlags[key] }
 
@@ -882,6 +884,7 @@ function App() {
               buildingSlug={selectedBuilding?.slug ?? null}
               date={currentDate}
               hour={currentClockHour}
+              onBeforeAsk={() => setIsPlaying(false)}
               suggestedPrompts={
                 selectedBuilding
                   ? [
