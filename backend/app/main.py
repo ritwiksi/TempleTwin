@@ -127,18 +127,34 @@ class InterventionRequest(BaseModel):
     solar: bool = False
 
 
+def _row_date_text(row: dict) -> str:
+    timestamp = row["timestamp"]
+    if hasattr(timestamp, "date"):
+        return timestamp.date().isoformat()
+    return str(timestamp)[:10]
+
+
 def _daily_building_profile(slug: str, date: str) -> list[dict]:
-    """Return one building's daily baseline profile with a campus-query fallback."""
+    """Return one building's daily baseline profile with robust fallbacks."""
     rows = repository.get_profile(slug, "baseline", date)
     if rows:
         return [dict(row) for row in rows]
 
-    # Campus playback already depends on this query. Falling back to it keeps
-    # interventions/chat aligned with the exact data source shown on the map.
-    return [
+    campus_rows = [
         dict(row)
         for row in repository.get_all_profiles("baseline", date)
         if str(row["slug"]) == slug
+    ]
+    if campus_rows:
+        return campus_rows
+
+    # Final fallback: avoid database-session timezone/date-filter differences by
+    # fetching the building's full seeded baseline and slicing the date in Python.
+    full_profile = repository.get_profile(slug, "baseline")
+    return [
+        dict(row)
+        for row in full_profile
+        if _row_date_text(dict(row)) == date
     ]
 
 
