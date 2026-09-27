@@ -38,6 +38,16 @@ for index in range(96):
     )
 
 
+
+SAMPLE_PROFILE_SEP14 = [
+    {
+        **row,
+        "timestamp": row["timestamp"].replace("2018-09-01", "2018-09-14"),
+    }
+    for row in SAMPLE_PROFILE
+]
+
+
 @patch("app.main.repository.get_building", return_value=SAMPLE_BUILDING)
 @patch("app.main.repository.get_profile", return_value=SAMPLE_PROFILE)
 def test_profile_endpoint_returns_daily_window(mock_profile, mock_building):
@@ -105,7 +115,7 @@ def test_simulation_endpoint_describes_three_month_window():
         for hour in range(24)
     ],
 )
-@patch("app.main.repository.get_profile", return_value=SAMPLE_PROFILE)
+@patch("app.main.repository.get_profile", return_value=SAMPLE_PROFILE_SEP14)
 @patch(
     "app.main.repository.get_building",
     return_value={
@@ -151,7 +161,7 @@ def test_simulate_endpoint_honors_date_and_intervention_flags(
         for hour in range(24)
     ],
 )
-@patch("app.main.repository.get_profile", return_value=SAMPLE_PROFILE)
+@patch("app.main.repository.get_profile", return_value=SAMPLE_PROFILE_SEP14)
 @patch(
     "app.main.repository.get_building",
     return_value={
