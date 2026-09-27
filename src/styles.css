@@ -1228,3 +1228,21 @@ input {
     min-height: 240px;
   }
 }
+
+
+/* Keep Ask Temple Twin composer anchored at the bottom */
+.ask-twin-shell .ask-twin-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.ask-twin-response {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
+}
+
+.ask-twin-shell .ask-twin-form {
+  flex: 0 0 auto;
+  margin-top: auto;
+}
