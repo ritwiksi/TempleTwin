@@ -792,9 +792,10 @@ input {
 .methodology-shell {
   position: absolute;
   z-index: 19;
-  left: 22px;
+  right: 22px;
   bottom: 34px;
   width: 220px;
+  text-align: right;
 }
 
 .methodology-button {
@@ -820,7 +821,7 @@ input {
 
 .methodology-popover {
   position: absolute;
-  left: 0;
+  right: 0;
   bottom: 30px;
   width: 300px;
   padding: 14px;
