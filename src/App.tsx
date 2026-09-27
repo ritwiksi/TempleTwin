@@ -274,6 +274,25 @@ function App() {
         setWeather(cached.weather)
         setDataError(null)
         setIsDataLoading(false)
+
+        const activeScenarios: Partial<Record<BuildingSlug, EnergyState[]>> = {}
+        for (const [slug, flags] of Object.entries(interventions)) {
+          if (flags.led || flags.hvac || flags.solar) {
+            try {
+              activeScenarios[slug] = await simulateInterventions(
+                slug,
+                flags,
+                currentDate,
+              )
+            } catch (err) {
+              console.warn(
+                `Intervention refresh failed for ${slug} on cached day ${currentDate}`,
+                err,
+              )
+            }
+          }
+        }
+        if (!cancelled) setScenarioProfiles(activeScenarios)
         return
       }
 
