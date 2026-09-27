@@ -60,11 +60,127 @@ const EMPTY_INTERVENTIONS: InterventionFlags = {
   solar: false,
 }
 
+type XY = { x: number; y: number }
+
+function pointInPolygon(point: XY, polygon: XY[]): boolean {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i]
+    const b = polygon[j]
+    const intersects =
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y || 1e-9) + a.x
+    if (intersects) inside = !inside
+  }
+  return inside
+}
+
+function buildSolarPanelFootprints(building: BuildingMetadata): number[][] {
+  const raw: Array<[number, number]> = []
+  for (let index = 0; index < building.footprint.length; index += 2) {
+    raw.push([building.footprint[index], building.footprint[index + 1]])
+  }
+  if (raw.length < 3) return []
+
+  const first = raw[0]
+  const last = raw[raw.length - 1]
+  if (Math.abs(first[0] - last[0]) < 1e-9 && Math.abs(first[1] - last[1]) < 1e-9) {
+    raw.pop()
+  }
+
+  const centerLon = raw.reduce((sum, point) => sum + point[0], 0) / raw.length
+  const centerLat = raw.reduce((sum, point) => sum + point[1], 0) / raw.length
+  const metersPerLon = 111_320 * Math.cos(CesiumMath.toRadians(centerLat))
+  const metersPerLat = 110_540
+
+  const local = raw.map(([lon, lat]) => ({
+    x: (lon - centerLon) * metersPerLon,
+    y: (lat - centerLat) * metersPerLat,
+  }))
+
+  let edgeAngle = 0
+  let longestEdge = 0
+  for (let index = 0; index < local.length; index += 1) {
+    const a = local[index]
+    const b = local[(index + 1) % local.length]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const length = Math.hypot(dx, dy)
+    if (length > longestEdge) {
+      longestEdge = length
+      edgeAngle = Math.atan2(dy, dx)
+    }
+  }
+
+  const ux = Math.cos(edgeAngle)
+  const uy = Math.sin(edgeAngle)
+  const vx = -uy
+  const vy = ux
+  const projections = local.map((point) => ({
+    u: point.x * ux + point.y * uy,
+    v: point.x * vx + point.y * vy,
+  }))
+  const minU = Math.min(...projections.map((point) => point.u))
+  const maxU = Math.max(...projections.map((point) => point.u))
+  const minV = Math.min(...projections.map((point) => point.v))
+  const maxV = Math.max(...projections.map((point) => point.v))
+  const roofWidth = maxU - minU
+  const roofDepth = maxV - minV
+
+  const usableWidth = roofWidth * 0.58
+  const usableDepth = roofDepth * 0.48
+  const panelWidth = Math.min(Math.max(usableWidth / 5.8, 2.6), 4.8)
+  const panelDepth = Math.min(Math.max(usableDepth / 4.8, 1.5), 2.5)
+  const columnGap = Math.max(panelWidth * 0.22, 0.6)
+  const rowGap = Math.max(panelDepth * 0.35, 0.7)
+  const columns = Math.max(
+    2,
+    Math.min(5, Math.floor((usableWidth + columnGap) / (panelWidth + columnGap))),
+  )
+  const rows = Math.max(
+    2,
+    Math.min(4, Math.floor((usableDepth + rowGap) / (panelDepth + rowGap))),
+  )
+  const arrayWidth = columns * panelWidth + (columns - 1) * columnGap
+  const arrayDepth = rows * panelDepth + (rows - 1) * rowGap
+
+  const results: number[][] = []
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const centerU = -arrayWidth / 2 + panelWidth / 2 + column * (panelWidth + columnGap)
+      const centerV = -arrayDepth / 2 + panelDepth / 2 + row * (panelDepth + rowGap)
+      const cornersUV: Array<[number, number]> = [
+        [centerU - panelWidth / 2, centerV - panelDepth / 2],
+        [centerU + panelWidth / 2, centerV - panelDepth / 2],
+        [centerU + panelWidth / 2, centerV + panelDepth / 2],
+        [centerU - panelWidth / 2, centerV + panelDepth / 2],
+      ]
+      const cornersXY = cornersUV.map(([u, v]) => ({
+        x: u * ux + v * vx,
+        y: u * uy + v * vy,
+      }))
+      if (!cornersXY.every((point) => pointInPolygon(point, local))) continue
+
+      const degrees: number[] = []
+      for (const point of cornersXY) {
+        degrees.push(
+          centerLon + point.x / metersPerLon,
+          centerLat + point.y / metersPerLat,
+        )
+      }
+      results.push(degrees)
+    }
+  }
+
+  return results.slice(0, 16)
+}
+
 function App() {
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const viewerInstanceRef = useRef<Viewer | null>(null)
   const realityTilesRef = useRef<Cesium3DTileset | null>(null)
   const energyEntitiesRef = useRef<Map<BuildingSlug, Entity>>(new Map())
+  const solarEntitiesRef = useRef<Map<BuildingSlug, Entity[]>>(new Map())
   const labelEntitiesRef = useRef<Entity[]>([])
   const modeRef = useRef<Mode>('reality')
 
@@ -253,6 +369,7 @@ function App() {
       disposed = true
       setViewerReady(false)
       energyEntitiesRef.current.clear()
+      solarEntitiesRef.current.clear()
       labelEntitiesRef.current = []
       if (!clickHandler.isDestroyed()) clickHandler.destroy()
       viewerInstanceRef.current = null
@@ -337,11 +454,57 @@ function App() {
     for (const entity of energyEntitiesRef.current.values()) {
       entity.show = showEnergy
     }
+    for (const entities of solarEntitiesRef.current.values()) {
+      for (const entity of entities) entity.show = showEnergy
+    }
     if (mode === 'reality') {
       setIsPlaying(false)
       setSelectedSlug(null)
     }
   }, [mode])
+
+  useEffect(() => {
+    const viewer = viewerInstanceRef.current
+    if (!viewer || !viewerReady) return
+
+    const activeSolar = new Set(
+      Object.entries(interventions)
+        .filter(([, flags]) => flags.solar)
+        .map(([slug]) => slug),
+    )
+
+    for (const [slug, entities] of solarEntitiesRef.current.entries()) {
+      if (activeSolar.has(slug)) {
+        for (const entity of entities) entity.show = modeRef.current === 'energy'
+        continue
+      }
+      for (const entity of entities) viewer.entities.remove(entity)
+      solarEntitiesRef.current.delete(slug)
+    }
+
+    for (const slug of activeSolar) {
+      if (solarEntitiesRef.current.has(slug)) continue
+      const building = buildings.find((item) => item.slug === slug)
+      if (!building) continue
+
+      const panelFootprints = buildSolarPanelFootprints(building)
+      const entities = panelFootprints.map((footprint, index) =>
+        viewer.entities.add({
+          id: `solar-${slug}-${index}`,
+          name: `${building.name} rooftop solar`,
+          show: modeRef.current === 'energy',
+          polygon: {
+            hierarchy: new PolygonHierarchy(Cartesian3.fromDegreesArray(footprint)),
+            material: new ColorMaterialProperty(
+              Color.fromCssColorString('#12304A').withAlpha(0.96),
+            ),
+            classificationType: ClassificationType.CESIUM_3D_TILE,
+          },
+        }),
+      )
+      solarEntitiesRef.current.set(slug, entities)
+    }
+  }, [interventions, buildings, viewerReady])
 
   const thresholds = useMemo(() => {
     if (!profiles) return { moderate: 0, high: 0, veryHigh: 0 }
