@@ -1180,3 +1180,51 @@ input {
     width: min(290px, calc(100% - 16px));
   }
 }
+
+
+/* Final Ask Temple Twin sizing polish */
+
+.ask-twin-shell {
+  width: 360px;
+}
+
+.ask-twin-shell .ask-twin-body {
+  min-height: 300px;
+  align-content: start;
+}
+
+.ask-twin-shell .ask-twin-toggle strong {
+  font-size: 12px;
+}
+
+.ask-twin-shell .ask-twin-toggle small,
+.ask-twin-shell .ask-twin-prompts button,
+.ask-twin-shell .ask-twin-answer,
+.ask-twin-shell .ask-twin-error {
+  font-size: 10px;
+}
+
+.ask-twin-shell .ask-twin-form input {
+  min-height: 42px;
+  font-size: 11px;
+}
+
+.ask-twin-shell .ask-twin-form button {
+  font-size: 18px;
+}
+
+@media (max-width: 860px) {
+  .ask-twin-shell {
+    width: 320px;
+  }
+}
+
+@media (max-width: 650px) {
+  .ask-twin-shell {
+    width: min(320px, calc(100% - 16px));
+  }
+
+  .ask-twin-shell .ask-twin-body {
+    min-height: 240px;
+  }
+}
