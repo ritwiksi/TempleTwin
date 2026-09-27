@@ -832,7 +832,7 @@ function App() {
         <div className="brand-copy">
           <div className="eyebrow">TEMPLE TWIN</div>
           <div className="subtitle">
-            '3D Campus Digital Twin'
+            3D Campus Digital Twin
           </div>
         </div>
       </div>
