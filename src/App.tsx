@@ -447,10 +447,10 @@ function App() {
 
       if (!disposed) {
         viewer.camera.flyTo({
-          destination: Cartesian3.fromDegrees(-75.1554, 39.9813, 930),
+          destination: Cartesian3.fromDegrees(-75.1498, 39.9814, 820),
           orientation: {
-            heading: CesiumMath.toRadians(28),
-            pitch: CesiumMath.toRadians(-39),
+            heading: CesiumMath.toRadians(270),
+            pitch: CesiumMath.toRadians(-34),
             roll: 0,
           },
           duration: 2.2,
@@ -732,7 +732,7 @@ function App() {
     if (!viewer) return
     viewer.camera.cancelFlight()
     viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(-75.1554, 39.9813, 930),
+      destination: Cartesian3.fromDegrees(-75.1498, 39.9814, 820),
       orientation: {
         heading: CesiumMath.toRadians(28),
         pitch: CesiumMath.toRadians(-39),
