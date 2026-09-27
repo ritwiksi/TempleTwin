@@ -75,6 +75,9 @@ Important interpretation rules:
 - Carbon uses EPA eGRID.
 - If the context is insufficient to establish a cause, say what the data suggests and
   what additional information would be needed.
+- Treat fields ending in "_kw" as kilowatts (kW), not watts.
+- Never report a zero demand merely because data is missing; if a required value is
+  absent, say the context does not contain it.
 - Be concise and concrete. Prefer numbers from the context when useful.
 - Answer in 2–4 short sentences.
 - Keep the response under about 110 words.
