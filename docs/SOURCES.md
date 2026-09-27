@@ -23,3 +23,12 @@
 ## Carbon
 
 - EPA eGRID2023 RFC East (RFCE) total-output CO2e emission rate is used for grid-electricity carbon estimates.
+
+
+## Intervention references
+
+- ASHRAE 90.1-2004 / COMcheck technical support documentation: reference whole-building lighting power densities used for the LED code-upgrade scenario.
+- ASHRAE 90.1-2019 Addendum bb: updated Building Area Method LPD targets used for the LED scenario.
+- PNNL / DOE, *Impacts of Commercial Building Controls on Energy Savings and Peak Load Reduction* (2017): approximately 6% whole-building savings for limiting heating/cooling to likely occupied periods, used as the HVAC-controls benchmark.
+- NREL, *Rooftop Solar Photovoltaic Technical Potential in the United States* (2016): commercial-roof suitability context and 160 W/m² module power density.
+- NREL PVWatts Version 5 Manual: 14% default system-loss assumption.
