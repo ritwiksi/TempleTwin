@@ -803,8 +803,15 @@ function App() {
       setScenarioProfiles((current) => ({ ...current, [slug]: simulated }))
     } catch (err) {
       console.error('Temple Twin intervention simulation failed:', err)
+      // A scenario that did not successfully compute should not look applied.
+      setInterventions((current) => ({ ...current, [slug]: previousFlags }))
+      setScenarioProfiles((current) => {
+        const next = { ...current }
+        delete next[slug]
+        return next
+      })
       setDataError(
-        `Could not refresh ${key.toUpperCase()} results for this building. The toggle remains active; retry if needed.`,
+        `Could not apply ${key.toUpperCase()} for this building. The scenario was reset to baseline.`,
       )
     } finally {
       setSimulatingSlug(null)
