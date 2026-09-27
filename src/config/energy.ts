@@ -20,15 +20,15 @@ export function getLoadZScore(
 }
 
 export function getLoadAnomalyColor(zScore: number): string {
-  if (zScore >= 3) return '#ef4444'
-  if (zScore >= 2) return '#f59e0b'
-  if (zScore >= 1) return '#eab308'
+  if (zScore >= 1.5) return '#ef4444'
+  if (zScore >= 1.0) return '#f59e0b'
+  if (zScore >= 0.5) return '#eab308'
   return '#22c55e'
 }
 
 export function getLoadAnomalyStatusColor(zScore: number): string {
-  if (zScore >= 3) return '#d56565'
-  if (zScore >= 2) return '#cf8a58'
-  if (zScore >= 1) return '#d2b25e'
+  if (zScore >= 1.5) return '#d56565'
+  if (zScore >= 1.0) return '#cf8a58'
+  if (zScore >= 0.5) return '#d2b25e'
   return '#6fbd87'
 }
