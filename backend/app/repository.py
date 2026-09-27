@@ -67,7 +67,7 @@ def get_profile(
         if date is None:
             cur.execute(
                 """
-                SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                SELECT s.timestamp, EXTRACT(HOUR FROM (s.timestamp AT TIME ZONE 'UTC'))::int AS hour,
                        s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
                        s.demand_kw, s.solar_kw, s.grid_import_kw,
                        s.energy_intensity_w_ft2, s.carbon_kg
@@ -81,7 +81,7 @@ def get_profile(
         else:
             cur.execute(
                 """
-                SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                SELECT s.timestamp, EXTRACT(HOUR FROM (s.timestamp AT TIME ZONE 'UTC'))::int AS hour,
                        s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
                        s.demand_kw, s.solar_kw, s.grid_import_kw,
                        s.energy_intensity_w_ft2, s.carbon_kg
@@ -89,7 +89,7 @@ def get_profile(
                 JOIN buildings b ON b.id = s.building_id
                 WHERE b.slug = %s
                   AND s.scenario_id = %s
-                  AND s.timestamp::date = %s::date
+                  AND (s.timestamp AT TIME ZONE 'UTC')::date = %s::date
                 ORDER BY s.timestamp
                 """,
                 (slug, scenario, date),
@@ -106,7 +106,7 @@ def get_all_profiles(
             cur.execute(
                 """
                 SELECT b.slug, s.timestamp,
-                       EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                       EXTRACT(HOUR FROM (s.timestamp AT TIME ZONE 'UTC'))::int AS hour,
                        s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
                        s.demand_kw, s.solar_kw, s.grid_import_kw,
                        s.energy_intensity_w_ft2, s.carbon_kg
@@ -121,14 +121,14 @@ def get_all_profiles(
             cur.execute(
                 """
                 SELECT b.slug, s.timestamp,
-                       EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                       EXTRACT(HOUR FROM (s.timestamp AT TIME ZONE 'UTC'))::int AS hour,
                        s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
                        s.demand_kw, s.solar_kw, s.grid_import_kw,
                        s.energy_intensity_w_ft2, s.carbon_kg
                 FROM building_hourly_state s
                 JOIN buildings b ON b.id = s.building_id
                 WHERE s.scenario_id = %s
-                  AND s.timestamp::date = %s::date
+                  AND (s.timestamp AT TIME ZONE 'UTC')::date = %s::date
                 ORDER BY b.slug, s.timestamp
                 """,
                 (scenario, date),
@@ -146,7 +146,7 @@ def get_state(
         if date is None:
             cur.execute(
                 """
-                SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                SELECT s.timestamp, EXTRACT(HOUR FROM (s.timestamp AT TIME ZONE 'UTC'))::int AS hour,
                        s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
                        s.demand_kw, s.solar_kw, s.grid_import_kw,
                        s.energy_intensity_w_ft2, s.carbon_kg
@@ -154,7 +154,7 @@ def get_state(
                 JOIN buildings b ON b.id = s.building_id
                 WHERE b.slug = %s
                   AND s.scenario_id = %s
-                  AND EXTRACT(HOUR FROM s.timestamp)::int = %s
+                  AND EXTRACT(HOUR FROM (s.timestamp AT TIME ZONE 'UTC'))::int = %s
                 ORDER BY s.timestamp
                 LIMIT 1
                 """,
@@ -163,7 +163,7 @@ def get_state(
         else:
             cur.execute(
                 """
-                SELECT s.timestamp, EXTRACT(HOUR FROM s.timestamp)::int AS hour,
+                SELECT s.timestamp, EXTRACT(HOUR FROM (s.timestamp AT TIME ZONE 'UTC'))::int AS hour,
                        s.hvac_kw, s.lighting_kw, s.process_kw, s.other_kw,
                        s.demand_kw, s.solar_kw, s.grid_import_kw,
                        s.energy_intensity_w_ft2, s.carbon_kg
@@ -171,8 +171,8 @@ def get_state(
                 JOIN buildings b ON b.id = s.building_id
                 WHERE b.slug = %s
                   AND s.scenario_id = %s
-                  AND EXTRACT(HOUR FROM s.timestamp)::int = %s
-                  AND s.timestamp::date = %s::date
+                  AND EXTRACT(HOUR FROM (s.timestamp AT TIME ZONE 'UTC'))::int = %s
+                  AND (s.timestamp AT TIME ZONE 'UTC')::date = %s::date
                 ORDER BY s.timestamp
                 LIMIT 1
                 """,
@@ -198,7 +198,7 @@ def get_weather(date: str | None = None) -> list[dict]:
                 SELECT timestamp, temperature_f, relative_humidity_pct,
                        cloud_cover_pct, ghi_w_m2, dni_w_m2, weather_code, source
                 FROM weather_hourly
-                WHERE timestamp::date = %s::date
+                WHERE (timestamp AT TIME ZONE 'UTC')::date = %s::date
                 ORDER BY timestamp
                 """,
                 (date,),
