@@ -128,19 +128,19 @@ function buildSolarPanelFootprints(building: BuildingMetadata): number[][] {
   const roofWidth = maxU - minU
   const roofDepth = maxV - minV
 
-  const usableWidth = roofWidth * 0.58
-  const usableDepth = roofDepth * 0.48
+  const usableWidth = roofWidth * 0.68
+  const usableDepth = roofDepth * 0.56
   const panelWidth = Math.min(Math.max(usableWidth / 5.8, 2.6), 4.8)
   const panelDepth = Math.min(Math.max(usableDepth / 4.8, 1.5), 2.5)
   const columnGap = Math.max(panelWidth * 0.22, 0.6)
   const rowGap = Math.max(panelDepth * 0.35, 0.7)
   const columns = Math.max(
     2,
-    Math.min(5, Math.floor((usableWidth + columnGap) / (panelWidth + columnGap))),
+    Math.min(6, Math.floor((usableWidth + columnGap) / (panelWidth + columnGap))),
   )
   const rows = Math.max(
     2,
-    Math.min(4, Math.floor((usableDepth + rowGap) / (panelDepth + rowGap))),
+    Math.min(5, Math.floor((usableDepth + rowGap) / (panelDepth + rowGap))),
   )
   const arrayWidth = columns * panelWidth + (columns - 1) * columnGap
   const arrayDepth = rows * panelDepth + (rows - 1) * rowGap
@@ -173,7 +173,7 @@ function buildSolarPanelFootprints(building: BuildingMetadata): number[][] {
     }
   }
 
-  return results.slice(0, 16)
+  return results.slice(0, 24)
 }
 
 function App() {
@@ -315,8 +315,7 @@ function App() {
       } catch (err) {
         console.error('Temple Twin daily data fetch failed:', err)
         if (!cancelled) {
-          setIsPlaying(false)
-          // Keep the last successfully rendered campus state during transient
+          // Keep playback state intact and retain the last good campus frame during transient
           // date-load failures. Only show the full error when we have no data yet.
           if (!profiles) {
             setDataError(`Energy data could not be loaded for ${currentDate}.`)
@@ -408,11 +407,27 @@ function App() {
     let disposed = false
     const clickHandler = new ScreenSpaceEventHandler(viewer.scene.canvas)
     clickHandler.setInputAction((movement: { position: Cartesian2 }) => {
-      const picked = viewer.scene.pick(movement.position)
-      const entityId = picked?.id?.id
-      if (typeof entityId === 'string' && entityId.startsWith('energy-')) {
-        setSelectedSlug(entityId.replace('energy-', ''))
-      }
+      const picks = viewer.scene.drillPick(movement.position, 12)
+      const entityId = picks
+        .map((picked) => picked?.id?.id)
+        .find(
+          (id) =>
+            typeof id === 'string' &&
+            (id.startsWith('energy-') ||
+              id.startsWith('label-') ||
+              id.startsWith('solar-')),
+        )
+
+      if (typeof entityId !== 'string') return
+
+      const slug = entityId.startsWith('energy-')
+        ? entityId.replace('energy-', '')
+        : entityId.startsWith('label-')
+          ? entityId.replace('label-', '')
+          : entityId.replace('solar-', '').replace(/-\d+$/, '')
+
+      viewer.camera.cancelFlight()
+      setSelectedSlug(slug)
     }, ScreenSpaceEventType.LEFT_CLICK)
 
     const initialize = async () => {
@@ -432,13 +447,13 @@ function App() {
 
       if (!disposed) {
         viewer.camera.flyTo({
-          destination: Cartesian3.fromDegrees(-75.1562, 39.9805, 1050),
+          destination: Cartesian3.fromDegrees(-75.1554, 39.9813, 1120),
           orientation: {
-            heading: CesiumMath.toRadians(28),
-            pitch: CesiumMath.toRadians(-39),
+            heading: 0,
+            pitch: CesiumMath.toRadians(-90),
             roll: 0,
           },
-          duration: 3.0,
+          duration: 2.2,
         })
       }
     }
@@ -715,14 +730,15 @@ function App() {
   const resetCamera = () => {
     const viewer = viewerInstanceRef.current
     if (!viewer) return
+    viewer.camera.cancelFlight()
     viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(-75.1562, 39.9805, 1050),
+      destination: Cartesian3.fromDegrees(-75.1554, 39.9813, 1120),
       orientation: {
-        heading: CesiumMath.toRadians(28),
-        pitch: CesiumMath.toRadians(-39),
+        heading: 0,
+        pitch: CesiumMath.toRadians(-90),
         roll: 0,
       },
-      duration: 1.1,
+      duration: 1.0,
     })
   }
 
@@ -733,19 +749,20 @@ function App() {
 
     if (!viewer) return
 
-    const cameraHeight = Math.max(210, building.approx_height_m * 7)
+    viewer.camera.cancelFlight()
+    const cameraHeight = Math.max(240, building.approx_height_m * 7)
     viewer.camera.flyTo({
       destination: Cartesian3.fromDegrees(
         building.longitude,
-        building.latitude - 0.00018,
+        building.latitude,
         cameraHeight,
       ),
       orientation: {
         heading: 0,
-        pitch: CesiumMath.toRadians(-48),
+        pitch: CesiumMath.toRadians(-90),
         roll: 0,
       },
-      duration: 1.25,
+      duration: 1.0,
     })
   }
 
@@ -767,9 +784,8 @@ function App() {
       setScenarioProfiles((current) => ({ ...current, [slug]: simulated }))
     } catch (err) {
       console.error('Temple Twin intervention simulation failed:', err)
-      setInterventions((current) => ({ ...current, [slug]: previousFlags }))
       setDataError(
-        `Could not update ${key.toUpperCase()} for this building. Retry the intervention.`,
+        `Could not refresh ${key.toUpperCase()} results for this building. The toggle remains active; retry if needed.`,
       )
     } finally {
       setSimulatingSlug(null)
