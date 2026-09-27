@@ -47,9 +47,7 @@ export function BuildingDetailPanel({
 }: Props) {
   const current = profile[currentIndex]
   const fullDayEnergyKwh = energyKwh(profile)
-  const baselineDayEnergyKwh = energyKwh(baselineProfile)
   const baselineAnnualKwh = building.modeled_annual_eui_kwh_ft2 * building.floor_area_ft2
-  const daySavingsKwh = Math.max(baselineDayEnergyKwh - fullDayEnergyKwh, 0)
   const fullDayCarbonKg = profile.reduce((sum, row) => sum + (row.carbon_kg ?? 0), 0)
 
   const width = 280
@@ -146,16 +144,8 @@ export function BuildingDetailPanel({
           <strong>{fullDayCarbonKg.toFixed(0)} kg CO₂e</strong>
         </div>
         <div className="metric-line">
-          <span>Current-day savings</span>
-          <strong>{daySavingsKwh.toFixed(0)} kWh</strong>
-        </div>
-        <div className="metric-line">
           <span>Annual baseline electricity</span>
           <strong>{(baselineAnnualKwh / 1_000_000).toFixed(2)} GWh/yr</strong>
-        </div>
-        <div className="metric-line">
-          <span>Solar generation</span>
-          <strong>{current.solar_kw.toFixed(0)} kW</strong>
         </div>
       </div>
 
