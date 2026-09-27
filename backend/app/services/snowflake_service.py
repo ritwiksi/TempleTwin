@@ -59,7 +59,8 @@ Important interpretation rules:
 - If the context is insufficient to establish a cause, say what the data suggests and
   what additional information would be needed.
 - Be concise and concrete. Prefer numbers from the context when useful.
-- Keep the response under about 180 words.
+- Answer in 2–4 short sentences.
+- Keep the response under about 110 words.
 
 TEMPLE TWIN CONTEXT:
 {context_json}

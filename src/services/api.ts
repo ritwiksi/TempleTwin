@@ -89,3 +89,41 @@ export async function simulateInterventions(
   }
   return rows
 }
+
+
+export type AskTempleTwinResponse = {
+  answer: string
+  model: string
+  building_slug: string | null
+  date: string
+  hour: number
+}
+
+export async function askTempleTwin(
+  question: string,
+  context: { buildingSlug?: string | null; date: string; hour: number },
+): Promise<AskTempleTwinResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/ask-temple-twin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question,
+      building_slug: context.buildingSlug ?? null,
+      date: context.date,
+      hour: context.hour,
+    }),
+  })
+
+  if (!response.ok) {
+    let detail = `Ask Temple Twin request failed: ${response.status}`
+    try {
+      const body = (await response.json()) as { detail?: string }
+      if (body.detail) detail = body.detail
+    } catch {
+      // Keep the status-based fallback when the backend did not return JSON.
+    }
+    throw new Error(detail)
+  }
+
+  return (await response.json()) as AskTempleTwinResponse
+}

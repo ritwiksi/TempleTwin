@@ -23,6 +23,7 @@ import {
 } from 'cesium'
 import { deriveEnergyIntensityThresholds, getEnergyIntensityColor } from './config/energy'
 import { BuildingDetailPanel } from './components/BuildingDetailPanel'
+import { AskTempleTwin } from './components/AskTempleTwin'
 import {
   fetchAllProfiles,
   fetchBuildings,
@@ -472,7 +473,7 @@ function App() {
             pitch: CesiumMath.toRadians(-34),
             roll: 0,
           },
-          duration: 2.2,
+          duration: 1.8,
         })
       }
     }
@@ -753,7 +754,7 @@ function App() {
     viewer.camera.flyTo({
       destination: Cartesian3.fromDegrees(-75.1498, 39.9814, 820),
       orientation: {
-        heading: CesiumMath.toRadians(28),
+        heading: CesiumMath.toRadians(270),
         pitch: CesiumMath.toRadians(-39),
         roll: 0,
       },
@@ -890,6 +891,17 @@ function App() {
                 isSimulating={simulatingSlug === selectedBuilding.slug}
                 onToggle={(key) => void toggleIntervention(selectedBuilding.slug, key)}
                 onClose={() => setSelectedSlug(null)}
+                askSection={
+                  <AskTempleTwin
+                    buildingSlug={selectedBuilding.slug}
+                    date={currentDate}
+                    hour={currentClockHour}
+                    suggestedPrompts={[
+                      'Why is demand high right now?',
+                      'How would solar affect this building?',
+                    ]}
+                  />
+                }
               />
             ) : (
               <>
@@ -920,6 +932,15 @@ function App() {
                     </button>
                   )}
                 </div>
+
+                <AskTempleTwin
+                  date={currentDate}
+                  hour={currentClockHour}
+                  suggestedPrompts={[
+                    'What is driving campus load?',
+                    'Why is demand high right now?',
+                  ]}
+                />
 
                 {dataError ? (
                   <div className="data-error-state">
