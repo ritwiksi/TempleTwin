@@ -185,6 +185,9 @@ def simulate(
         weather_rows,
         floor_area_ft2=float(building_row["floor_area_ft2"]),
         roof_area_ft2=float(building_row["roof_area_ft2"]),
+        building_type=building_row.get("building_type"),
+        archetype=building_row.get("archetype"),
+        comstock_type=building_row.get("comstock_type"),
         led=request.led,
         hvac=request.hvac,
         solar=request.solar,
@@ -356,6 +359,9 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
                 weather_dicts,
                 floor_area_ft2=float(building_row["floor_area_ft2"]),
                 roof_area_ft2=float(building_row["roof_area_ft2"]),
+                building_type=building_row.get("building_type"),
+                archetype=building_row.get("archetype"),
+                comstock_type=building_row.get("comstock_type"),
                 **flags,
             )
             scenario_row = next(
