@@ -5,7 +5,16 @@ from pathlib import Path
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.services.intervention_model import apply_interventions
+from app.config.model_parameters import (
+    ASHRAE_2004_REFERENCE_LPD_W_FT2,
+    ASHRAE_TARGET_LPD_W_FT2,
+    PNNL_HVAC_CONTROLS_WHOLE_BUILDING_SAVINGS_FRACTION,
+)
+from app.services.intervention_model import (
+    apply_interventions,
+    hvac_controls_assumptions,
+    lighting_retrofit_assumptions,
+)
 
 
 FLOOR_AREA = 250000.0
@@ -52,6 +61,9 @@ def simulate(**kwargs):
         weather_profile(),
         FLOOR_AREA,
         ROOF_AREA,
+        building_type="ACADEMIC",
+        archetype="ACADEMIC",
+        comstock_type="secondaryschool",
         **kwargs,
     )
 
@@ -106,16 +118,52 @@ def test_demand_always_equals_end_use_sum():
         assert math.isclose(row["demand_kw"], expected, rel_tol=1e-12)
 
 
-def test_led_reduction_is_exactly_configured_fraction():
+def test_led_reduction_comes_from_ashrae_lpd_ratio():
+    assumptions = lighting_retrofit_assumptions(
+        baseline_profile(),
+        FLOOR_AREA,
+        "ACADEMIC",
+        "ACADEMIC",
+        "secondaryschool",
+    )
+    expected = 1.0 - (
+        ASHRAE_TARGET_LPD_W_FT2["school_university"]
+        / ASHRAE_2004_REFERENCE_LPD_W_FT2["school_university"]
+    )
+    assert math.isclose(assumptions["reduction_fraction"], expected, rel_tol=1e-12)
+
     result = simulate(led=True)
     for row in result:
-        assert math.isclose(row["lighting_kw"], 25.0, rel_tol=1e-12)
+        assert math.isclose(
+            row["lighting_kw"],
+            50.0 * (1.0 - expected),
+            rel_tol=1e-12,
+        )
 
 
-def test_hvac_reduction_is_exactly_configured_fraction():
+def test_hvac_reduction_is_derived_from_pnnl_whole_building_target():
+    assumptions = hvac_controls_assumptions(baseline_profile())
+    expected_hvac_reduction = (
+        PNNL_HVAC_CONTROLS_WHOLE_BUILDING_SAVINGS_FRACTION * 375.0 / 100.0
+    )
+    assert math.isclose(
+        assumptions["hvac_reduction_fraction"],
+        expected_hvac_reduction,
+        rel_tol=1e-12,
+    )
+    assert math.isclose(
+        assumptions["achieved_whole_building_savings_fraction"],
+        PNNL_HVAC_CONTROLS_WHOLE_BUILDING_SAVINGS_FRACTION,
+        rel_tol=1e-12,
+    )
+
     result = simulate(hvac=True)
     for row in result:
-        assert math.isclose(row["hvac_kw"], 90.0, rel_tol=1e-12)
+        assert math.isclose(
+            row["hvac_kw"],
+            100.0 * (1.0 - expected_hvac_reduction),
+            rel_tol=1e-12,
+        )
 
 
 def test_solar_is_zero_at_night_and_positive_during_day():
@@ -146,8 +194,18 @@ def test_combined_interventions_stack_without_cross_talk():
     result = simulate(led=True, hvac=True, solar=True)
     daytime = 12 * 4
 
-    assert math.isclose(result[daytime]["lighting_kw"], base[daytime]["lighting_kw"] * 0.5, rel_tol=1e-12)
-    assert math.isclose(result[daytime]["hvac_kw"], base[daytime]["hvac_kw"] * 0.9, rel_tol=1e-12)
+    led_fraction = result[daytime]["led_reduction_fraction"]
+    hvac_fraction = result[daytime]["hvac_reduction_fraction"]
+    assert math.isclose(
+        result[daytime]["lighting_kw"],
+        base[daytime]["lighting_kw"] * (1.0 - led_fraction),
+        rel_tol=1e-12,
+    )
+    assert math.isclose(
+        result[daytime]["hvac_kw"],
+        base[daytime]["hvac_kw"] * (1.0 - hvac_fraction),
+        rel_tol=1e-12,
+    )
     assert math.isclose(result[daytime]["process_kw"], base[daytime]["process_kw"], rel_tol=1e-12)
     assert math.isclose(result[daytime]["other_kw"], base[daytime]["other_kw"], rel_tol=1e-12)
     assert result[daytime]["solar_kw"] > 0
