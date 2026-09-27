@@ -6,6 +6,7 @@ type Props = {
   date: string | null
   hour: number
   suggestedPrompts: string[]
+  onBeforeAsk?: () => void
 }
 
 export function AskTempleTwin({
@@ -13,6 +14,7 @@ export function AskTempleTwin({
   date,
   hour,
   suggestedPrompts,
+  onBeforeAsk,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const [question, setQuestion] = useState('')
@@ -25,6 +27,7 @@ export function AskTempleTwin({
     const trimmed = question.trim()
     if (!trimmed || !date || isSending) return
 
+    onBeforeAsk?.()
     setIsSending(true)
     setError(null)
     try {
