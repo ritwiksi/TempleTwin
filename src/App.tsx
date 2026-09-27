@@ -877,6 +877,25 @@ function App() {
 
       {mode === 'energy' && (
         <>
+          <div className="ask-twin-shell">
+            <AskTempleTwin
+              buildingSlug={selectedBuilding?.slug ?? null}
+              date={currentDate}
+              hour={currentClockHour}
+              suggestedPrompts={
+                selectedBuilding
+                  ? [
+                      'Why is demand high right now?',
+                      'How would solar affect this building?',
+                    ]
+                  : [
+                      'What is driving campus load?',
+                      'Why is demand high right now?',
+                    ]
+              }
+            />
+          </div>
+
           <aside
             className={`energy-dock ${selectedBuilding ? 'detail-open' : ''}`}
             aria-label="Building energy panel"
@@ -891,17 +910,6 @@ function App() {
                 isSimulating={simulatingSlug === selectedBuilding.slug}
                 onToggle={(key) => void toggleIntervention(selectedBuilding.slug, key)}
                 onClose={() => setSelectedSlug(null)}
-                askSection={
-                  <AskTempleTwin
-                    buildingSlug={selectedBuilding.slug}
-                    date={currentDate}
-                    hour={currentClockHour}
-                    suggestedPrompts={[
-                      'Why is demand high right now?',
-                      'How would solar affect this building?',
-                    ]}
-                  />
-                }
               />
             ) : (
               <>
@@ -932,15 +940,6 @@ function App() {
                     </button>
                   )}
                 </div>
-
-                <AskTempleTwin
-                  date={currentDate}
-                  hour={currentClockHour}
-                  suggestedPrompts={[
-                    'What is driving campus load?',
-                    'Why is demand high right now?',
-                  ]}
-                />
 
                 {dataError ? (
                   <div className="data-error-state">
