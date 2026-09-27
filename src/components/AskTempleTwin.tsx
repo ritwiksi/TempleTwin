@@ -39,7 +39,11 @@ export function AskTempleTwin({
       console.error('Ask Temple Twin request failed:', err)
       setAnswer(null)
       const detail = err instanceof Error ? err.message : String(err)
-      setError(`Ask Temple Twin is temporarily unavailable. ${detail}`)
+      setError(
+        import.meta.env.DEV
+          ? `Ask Temple Twin is temporarily unavailable. ${detail}`
+          : 'Ask Temple Twin is temporarily unavailable.',
+      )
     } finally {
       setIsSending(false)
     }
