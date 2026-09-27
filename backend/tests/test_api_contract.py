@@ -206,11 +206,14 @@ def test_simulate_endpoint_can_return_baseline_when_all_flags_off(
     ],
 )
 @patch(
-    "app.main.repository.get_state",
-    return_value={
-        **SAMPLE_PROFILE_SEP14[56],
-        "timestamp": datetime(2018, 9, 14, 14, 0),
-    },
+    "app.main.repository.get_profile",
+    return_value=[
+        {
+            **row,
+            "timestamp": datetime.fromisoformat(row["timestamp"]),
+        }
+        for row in SAMPLE_PROFILE_SEP14
+    ],
 )
 @patch(
     "app.main.repository.get_building",
@@ -227,7 +230,7 @@ def test_simulate_endpoint_can_return_baseline_when_all_flags_off(
 )
 def test_ask_temple_twin_grounds_cortex_in_tiger_context(
     mock_building,
-    mock_state,
+    mock_profile,
     mock_weather,
     mock_complete,
 ):
@@ -305,3 +308,71 @@ def test_ask_temple_twin_can_answer_campus_question(
     assert context["scope"] == "campus"
     assert context["campus_demand_kw"] == 800.0
     assert context["highest_demand_buildings"][0]["slug"] == "serc"
+
+
+
+@patch("app.main.complete_with_cortex", return_value="Klein demand is available from the daily campus profile.")
+@patch(
+    "app.main.repository.get_weather",
+    return_value=[
+        {
+            "timestamp": datetime(2018, 9, 15, hour, 0),
+            "temperature_f": 68.0,
+            "relative_humidity_pct": 50.0,
+            "cloud_cover_pct": 20.0,
+            "ghi_w_m2": 0.0,
+            "dni_w_m2": 0.0,
+            "weather_code": 1,
+            "source": "Open-Meteo historical weather API",
+        }
+        for hour in range(24)
+    ],
+)
+@patch(
+    "app.main.repository.get_all_profiles",
+    return_value=[
+        {
+            **SAMPLE_PROFILE[20],
+            "slug": "klein-law",
+            "timestamp": datetime(2018, 9, 15, 5, 0),
+            "hour": 5,
+        }
+    ],
+)
+@patch("app.main.repository.get_profile", return_value=[])
+@patch(
+    "app.main.repository.get_building",
+    return_value={
+        **SAMPLE_BUILDING,
+        "slug": "klein-law",
+        "name": "Klein Law Building",
+        "roof_area_ft2": 33685.15,
+        "building_type": "ACADEMIC",
+        "archetype": "ACADEMIC",
+        "comstock_type": "secondaryschool",
+        "data_confidence": "reported-electricity",
+        "annual_electricity_kwh": 1746261.51,
+        "electricity_source": "City of Philadelphia 2024 Building Energy Benchmarking",
+        "model_notes": "ComStock load shape anchored to annual electricity.",
+    },
+)
+def test_building_chat_falls_back_to_daily_campus_profile(
+    mock_building,
+    mock_profile,
+    mock_all_profiles,
+    mock_weather,
+    mock_complete,
+):
+    response = client.post(
+        "/api/ask-temple-twin",
+        json={
+            "question": "What is the current energy demand?",
+            "building_slug": "klein-law",
+            "date": "2018-09-15",
+            "hour": 5,
+        },
+    )
+    assert response.status_code == 200
+    _, context = mock_complete.call_args.args
+    assert context["state"]["demand_kw"] == SAMPLE_PROFILE[20]["demand_kw"]
+    assert context["building"]["slug"] == "klein-law"
