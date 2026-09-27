@@ -189,7 +189,8 @@ input {
   right: 22px;
   width: 324px;
   max-height: calc(100vh - 202px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -326,14 +327,15 @@ input {
 }
 
 .building-row-content {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .building-row-main {
-  display: flex;
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -351,6 +353,7 @@ input {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
   color: var(--text);
   font-size: 11px;
   font-weight: 500;
@@ -365,8 +368,10 @@ input {
 }
 
 .metric-demand {
+  min-width: 58px;
   color: var(--text);
   white-space: nowrap;
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
