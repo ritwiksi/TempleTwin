@@ -52,7 +52,7 @@ The interactive simulation currently spans:
 
 That is 91 consecutive days and **8,736 15-minute states per building**.
 
-Historical Open-Meteo weather is cached for the same 91-day window. Temperature modifies HVAC through the bounded weather-response model, and historical irradiance drives the rooftop-solar scenario.
+Historical Open-Meteo weather is cached for the same 91-day window. The ComStock 2018 profile already contains weather-responsive HVAC behavior, so Temple Twin does not apply an additional arbitrary temperature multiplier. Open-Meteo irradiance drives the rooftop-solar scenario and weather is shown as explanatory context.
 
 The frontend exposes one continuous master timeline but fetches the active calendar day from the API on demand. This keeps browser payloads manageable while the full three-month state history remains stored in Tiger.
 
@@ -66,9 +66,45 @@ The frontend derives shared intensity thresholds from the active day's campus pr
 
 ## Intervention scenarios
 
-- LED retrofit reduces lighting load only.
-- HVAC efficiency reduces HVAC load only.
-- Rooftop solar leaves building demand unchanged and reduces grid import using historical irradiance.
+### LED code-upgrade retrofit
+
+Temple Twin does not claim to know the installed fixture inventory in each building. Instead it uses a transparent code-to-code scenario based on ASHRAE Building Area Method lighting power density (LPD).
+
+For the closest building category:
+
+`lighting_reduction = 1 - (LPD_2019_target / LPD_2004_reference)`
+
+and for every 15-minute interval:
+
+`lighting_kw_new = lighting_kw_baseline × (1 - lighting_reduction)`
+
+Examples of the source values used by the model include school/university 1.20 → 0.70 W/ft² and office 1.00 → 0.62 W/ft². The model labels these as reference/target values rather than measured Temple LPDs.
+
+### HVAC controls optimization
+
+The HVAC scenario represents a controls measure, not an equipment replacement with an invented COP. PNNL/DOE found about 6% whole-building savings from limiting heating/cooling to periods when a commercial building is most likely occupied.
+
+For each active day:
+
+`target_savings_kwh = 0.06 × baseline_building_kwh`
+
+`hvac_reduction_fraction = min(1, target_savings_kwh / baseline_hvac_kwh)`
+
+`hvac_kw_new = hvac_kw_baseline × (1 - hvac_reduction_fraction)`
+
+This translates the published whole-building benchmark through each building/day's actual modeled HVAC share. If HVAC energy is insufficient to achieve the full target, savings are limited to available HVAC energy.
+
+### Rooftop solar
+
+Solar leaves underlying building demand unchanged.
+
+`pv_capacity_kw = roof_area_ft² × 0.092903 × 0.60 × 0.160`
+
+`solar_kw = pv_capacity_kw × (GHI / 1000) × (1 - 0.14)`
+
+`grid_import_kw = max(building_demand_kw - solar_kw, 0)`
+
+The 60% usable-roof fraction is a simplified commercial-roof suitability assumption; 160 W/m² comes from NREL rooftop technical-potential work; 14% is the PVWatts default system-loss assumption.
 
 Intervention savings shown in the detail panel are day-specific. Temple Twin does not extrapolate one day's retrofit savings into an annual scenario total.
 
