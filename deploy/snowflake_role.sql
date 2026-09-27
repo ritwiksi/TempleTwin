@@ -1,0 +1,24 @@
+-- Temple Twin least-privilege Snowflake role.
+-- Run as ACCOUNTADMIN once, then set SNOWFLAKE_ROLE=TEMPLE_TWIN_APP.
+-- Replace YOUR_SNOWFLAKE_USER if needed.
+
+USE ROLE ACCOUNTADMIN;
+
+CREATE ROLE IF NOT EXISTS TEMPLE_TWIN_APP;
+
+-- Required for SNOWFLAKE.CORTEX.COMPLETE.
+GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE TEMPLE_TWIN_APP;
+
+-- Required because the Python connector opens a session with these objects selected.
+GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE TEMPLE_TWIN_APP;
+GRANT USAGE ON DATABASE UTIL_DB TO ROLE TEMPLE_TWIN_APP;
+GRANT USAGE ON SCHEMA UTIL_DB.PUBLIC TO ROLE TEMPLE_TWIN_APP;
+
+GRANT ROLE TEMPLE_TWIN_APP TO USER YOUR_SNOWFLAKE_USER;
+
+-- Optional verification after switching to the new role:
+-- USE ROLE TEMPLE_TWIN_APP;
+-- SELECT SNOWFLAKE.CORTEX.COMPLETE(
+--   'llama3.1-8b',
+--   'Reply with exactly: Temple Twin Cortex OK'
+-- );
