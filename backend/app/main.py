@@ -291,9 +291,13 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
     if building_row is None:
         raise HTTPException(status_code=404, detail="Building not found")
 
-    profile_rows = _daily_building_profile(slug, date)
-
     state_row = repository.get_state(slug, hour, "baseline", date)
+
+    try:
+        profile_rows = _daily_building_profile(slug, date)
+    except Exception:
+        profile_rows = []
+
     if state_row is None and profile_rows:
         state_row = next(
             (
