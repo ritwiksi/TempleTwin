@@ -127,6 +127,21 @@ class InterventionRequest(BaseModel):
     solar: bool = False
 
 
+def _daily_building_profile(slug: str, date: str) -> list[dict]:
+    """Return one building's daily baseline profile with a campus-query fallback."""
+    rows = repository.get_profile(slug, "baseline", date)
+    if rows:
+        return [dict(row) for row in rows]
+
+    # Campus playback already depends on this query. Falling back to it keeps
+    # interventions/chat aligned with the exact data source shown on the map.
+    return [
+        dict(row)
+        for row in repository.get_all_profiles("baseline", date)
+        if str(row["slug"]) == slug
+    ]
+
+
 @app.post("/api/buildings/{slug}/simulate")
 def simulate(
     slug: str,
@@ -137,7 +152,7 @@ def simulate(
     if building_row is None:
         raise HTTPException(status_code=404, detail="Building not found")
 
-    profile_rows = repository.get_profile(slug, "baseline", date)
+    profile_rows = _daily_building_profile(slug, date)
     weather_rows = repository.get_weather(date)
 
     if not profile_rows:
@@ -215,6 +230,12 @@ def _campus_snapshot(date: str, hour: int) -> dict:
             if int(row["hour"]) == hour
         ][:50]
 
+    if not hour_rows:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No campus energy state found for {date} at hour {hour}",
+        )
+
     total_demand_kw = sum(float(row["demand_kw"]) for row in hour_rows)
     total_grid_import_kw = sum(
         float(row.get("grid_import_kw", row["demand_kw"]))
@@ -241,6 +262,12 @@ def _campus_snapshot(date: str, hour: int) -> dict:
         "scope": "campus",
         "date": date,
         "hour": hour,
+        "units": {
+            "demand": "kW",
+            "grid_import": "kW",
+            "end_use": "kW",
+            "energy_intensity": "W/ft²",
+        },
         "building_count": len(hour_rows),
         "campus_demand_kw": round(total_demand_kw, 2),
         "campus_grid_import_kw": round(total_grid_import_kw, 2),
@@ -264,17 +291,26 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
     if building_row is None:
         raise HTTPException(status_code=404, detail="Building not found")
 
+    profile_rows = _daily_building_profile(slug, date)
+
     state_row = repository.get_state(slug, hour, "baseline", date)
+    if state_row is None and profile_rows:
+        state_row = next(
+            (
+                row
+                for row in profile_rows
+                if int(row["hour"]) == hour
+                and getattr(row["timestamp"], "minute", 0) == 0
+            ),
+            next((row for row in profile_rows if int(row["hour"]) == hour), None),
+        )
     if state_row is None:
-        raise HTTPException(status_code=404, detail="Building state not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Building state not found for {slug} on {date} at hour {hour}",
+        )
 
     weather_rows = repository.get_weather(date)
-    try:
-        profile_rows = repository.get_profile(slug, "baseline", date)
-    except Exception:
-        # Ask Temple Twin can still explain the current state even if the optional
-        # intervention snapshot cannot be assembled.
-        profile_rows = []
     weather_row = next(
         (
             dict(row)
@@ -326,6 +362,14 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
         "scope": "building",
         "date": date,
         "hour": hour,
+        "units": {
+            "demand": "kW",
+            "grid_import": "kW",
+            "end_use": "kW",
+            "solar": "kW",
+            "energy_intensity": "W/ft²",
+            "carbon": "kg CO2e per 15-minute interval",
+        },
         "building": {
             "slug": building_row["slug"],
             "name": building_row["name"],
