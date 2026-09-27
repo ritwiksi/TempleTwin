@@ -50,6 +50,16 @@ EGRID_RFCE_CO2E_KG_PER_KWH = (
 # Lighting retrofit targets: ASHRAE 90.1-2019 Building Area Method values
 # as updated by Addendum bb. These are target lighting power densities, not
 # claimed existing Temple fixture inventories.
+ASHRAE_2004_REFERENCE_LPD_W_FT2 = {
+    "school_university": 1.20,
+    "office": 1.00,
+    "hotel": 1.00,
+    "warehouse": 0.80,
+    "retail": 1.50,
+    "parking_garage": 0.30,
+    "sports_arena": 1.10,
+}
+
 ASHRAE_TARGET_LPD_W_FT2 = {
     "school_university": 0.70,
     "office": 0.62,
