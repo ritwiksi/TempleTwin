@@ -27,6 +27,11 @@ export async function fetchAllProfiles(date: string): Promise<BuildingProfileMap
   }
 
   const profiles = (await response.json()) as BuildingProfileMap
+  if (Object.keys(profiles).length === 0) {
+    throw new Error(
+      `No energy profiles found for ${date}. Reseed Tiger with the current 3-month dataset.`,
+    )
+  }
   for (const [slug, rows] of Object.entries(profiles)) {
     if (rows.length !== 96) {
       throw new Error(
