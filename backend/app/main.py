@@ -198,6 +198,13 @@ def _campus_snapshot(date: str, hour: int) -> dict:
         ][:50]
 
     total_demand_kw = sum(float(row["demand_kw"]) for row in hour_rows)
+    total_grid_import_kw = sum(float(row["grid_import_kw"]) for row in hour_rows)
+    end_use_breakdown_kw = {
+        "hvac": round(sum(float(row["hvac_kw"]) for row in hour_rows), 2),
+        "lighting": round(sum(float(row["lighting_kw"]) for row in hour_rows), 2),
+        "process": round(sum(float(row["process_kw"]) for row in hour_rows), 2),
+        "other": round(sum(float(row["other_kw"]) for row in hour_rows), 2),
+    }
     top = sorted(
         hour_rows,
         key=lambda row: float(row["demand_kw"]),
@@ -215,6 +222,8 @@ def _campus_snapshot(date: str, hour: int) -> dict:
         "hour": hour,
         "building_count": len(hour_rows),
         "campus_demand_kw": round(total_demand_kw, 2),
+        "campus_grid_import_kw": round(total_grid_import_kw, 2),
+        "end_use_breakdown_kw": end_use_breakdown_kw,
         "highest_demand_buildings": [
             {
                 "slug": row["slug"],
@@ -239,6 +248,7 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
         raise HTTPException(status_code=404, detail="Building state not found")
 
     weather_rows = repository.get_weather(date)
+    profile_rows = repository.get_profile(slug, "baseline", date)
     weather_row = next(
         (
             dict(row)
@@ -249,6 +259,43 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
     )
 
     state = dict(state_row)
+
+    intervention_snapshot = {}
+    if len(weather_rows) == 24 and profile_rows:
+        profile_dicts = [dict(row) for row in profile_rows]
+        weather_dicts = [dict(row) for row in weather_rows]
+        scenario_flags = {
+            "led": {"led": True},
+            "hvac": {"hvac": True},
+            "solar": {"solar": True},
+            "combined": {"led": True, "hvac": True, "solar": True},
+        }
+        for scenario_name, flags in scenario_flags.items():
+            simulated = apply_interventions(
+                slug,
+                profile_dicts,
+                weather_dicts,
+                floor_area_ft2=float(building_row["floor_area_ft2"]),
+                roof_area_ft2=float(building_row["roof_area_ft2"]),
+                **flags,
+            )
+            scenario_row = next(
+                (
+                    row
+                    for row in simulated
+                    if int(row["hour"]) == hour
+                    and getattr(row["timestamp"], "minute", 0) == 0
+                ),
+                next((row for row in simulated if int(row["hour"]) == hour), None),
+            )
+            if scenario_row is not None:
+                intervention_snapshot[scenario_name] = {
+                    "demand_kw": round(float(scenario_row["demand_kw"]), 2),
+                    "grid_import_kw": round(float(scenario_row["grid_import_kw"]), 2),
+                    "solar_kw": round(float(scenario_row["solar_kw"]), 2),
+                    "carbon_kg_per_interval": round(float(scenario_row["carbon_kg"]), 3),
+                }
+
     return {
         "scope": "building",
         "date": date,
@@ -277,6 +324,7 @@ def _building_context(slug: str, date: str, hour: int) -> dict:
             "carbon_kg": state["carbon_kg"],
         },
         "weather": weather_row,
+        "intervention_snapshot": intervention_snapshot,
         "model_assumptions": {
             "interval_minutes": INTERVAL_MINUTES,
             "profile_source": "NREL ComStock Philadelphia County",
