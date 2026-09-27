@@ -34,6 +34,7 @@ export function AskTempleTwin({
         hour,
       })
       setAnswer(response.answer)
+      setQuestion('')
     } catch (err) {
       console.error('Ask Temple Twin request failed:', err)
       setAnswer(null)
