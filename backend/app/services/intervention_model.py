@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from app.config.model_parameters import (
+    ASHRAE_2004_REFERENCE_LPD_W_FT2,
     ASHRAE_TARGET_LPD_W_FT2,
     EGRID_RFCE_CO2E_KG_PER_KWH,
     FT2_TO_M2,
@@ -98,32 +99,27 @@ def lighting_retrofit_assumptions(
     archetype: str | None = None,
     comstock_type: str | None = None,
 ) -> dict[str, float | str]:
-    """Derive LED reduction from modeled baseline LPD and an ASHRAE target LPD.
+    """Return an explicit ASHRAE code-to-code LED retrofit scenario.
 
-    The baseline LPD is a calibrated-ComStock proxy:
-      max modeled lighting kW * 1000 / gross floor area.
-    If that modeled baseline is already at or below the target, no LED energy
-    reduction is credited.
+    Temple Twin does not know the installed fixture inventory for each building.
+    Rather than invent one, the scenario compares a legacy 90.1-2004 Building
+    Area Method LPD reference with the 90.1-2019/Addendum-bb target for the
+    closest building category, then scales the modeled lighting profile by the
+    ratio of those two published LPDs.
     """
     if floor_area_ft2 <= 0:
         raise ValueError("floor_area_ft2 must be positive")
-    peak_lighting_kw = max((float(row["lighting_kw"]) for row in profile), default=0.0)
-    baseline_lpd = peak_lighting_kw * 1000.0 / floor_area_ft2
     category = lighting_target_category(building_type, archetype, comstock_type)
+    reference_lpd = ASHRAE_2004_REFERENCE_LPD_W_FT2[category]
     target_lpd = ASHRAE_TARGET_LPD_W_FT2[category]
-
-    if baseline_lpd <= 0:
-        reduction = 0.0
-    else:
-        reduction = max(0.0, min(1.0, 1.0 - target_lpd / baseline_lpd))
+    reduction = max(0.0, min(1.0, 1.0 - target_lpd / reference_lpd))
 
     return {
         "category": category,
-        "baseline_lpd_w_ft2": baseline_lpd,
+        "reference_lpd_w_ft2": reference_lpd,
         "target_lpd_w_ft2": target_lpd,
         "reduction_fraction": reduction,
     }
-
 
 def hvac_controls_assumptions(
     profile: list[dict[str, Any]],
@@ -219,7 +215,7 @@ def apply_interventions(
                     grid_import_kw * INTERVAL_HOURS * EGRID_RFCE_CO2E_KG_PER_KWH
                 ),
                 "led_reduction_fraction": lighting_reduction,
-                "led_baseline_lpd_w_ft2": lighting_assumptions["baseline_lpd_w_ft2"],
+                "led_reference_lpd_w_ft2": lighting_assumptions["reference_lpd_w_ft2"],
                 "led_target_lpd_w_ft2": lighting_assumptions["target_lpd_w_ft2"],
                 "led_target_category": lighting_assumptions["category"],
                 "hvac_reduction_fraction": hvac_reduction,
