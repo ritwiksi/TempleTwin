@@ -21,7 +21,11 @@ import {
   Viewer,
   VerticalOrigin,
 } from 'cesium'
-import { deriveEnergyIntensityThresholds, getEnergyIntensityColor } from './config/energy'
+import {
+  getLoadAnomalyColor,
+  getLoadAnomalyStatusColor,
+  getLoadZScore,
+} from './config/energy'
 import { BuildingDetailPanel } from './components/BuildingDetailPanel'
 import { AskTempleTwin } from './components/AskTempleTwin'
 import {
@@ -45,16 +49,6 @@ type Mode = 'reality' | 'energy'
 
 const PLAY_INTERVAL_MS = 180
 const DEFAULT_VIEW_DATE = '2018-09-14'
-
-function getStatusColor(
-  intensityWPerFt2: number,
-  thresholds: { moderate: number; high: number; veryHigh: number },
-): string {
-  if (intensityWPerFt2 >= thresholds.veryHigh) return '#d56565'
-  if (intensityWPerFt2 >= thresholds.high) return '#cf8a58'
-  if (intensityWPerFt2 >= thresholds.moderate) return '#d2b25e'
-  return '#6fbd87'
-}
 
 const EMPTY_INTERVENTIONS: InterventionFlags = {
   led: false,
@@ -621,15 +615,6 @@ function App() {
     }
   }, [interventions, buildings, viewerReady])
 
-  const thresholds = useMemo(() => {
-    if (!profiles) return { moderate: 0, high: 0, veryHigh: 0 }
-    return deriveEnergyIntensityThresholds(
-      Object.values(profiles).flatMap((rows) =>
-        rows.map((row) => row.energy_intensity_w_ft2),
-      ),
-    )
-  }, [profiles])
-
   useEffect(() => {
     if (!profiles) return
     const viewer = viewerInstanceRef.current
@@ -640,9 +625,9 @@ function App() {
       const polygon = energyEntitiesRef.current.get(building.slug)?.polygon
       if (!state || !polygon) continue
 
-      const baseColor = Color.fromCssColorString(
-        getEnergyIntensityColor(state.energy_intensity_w_ft2, thresholds),
-      )
+      const baselineProfile = profiles[building.slug] ?? []
+      const zScore = getLoadZScore(state.energy_intensity_w_ft2, baselineProfile)
+      const baseColor = Color.fromCssColorString(getLoadAnomalyColor(zScore))
       const isSelected = building.slug === selectedSlug
       const displayColor = isSelected
         ? Color.lerp(baseColor, Color.WHITE, 0.24, new Color())
@@ -662,7 +647,7 @@ function App() {
         )
       }
     }
-  }, [buildings, profiles, scenarioProfiles, currentDayIndex, thresholds, selectedSlug])
+  }, [buildings, profiles, scenarioProfiles, currentDayIndex, selectedSlug])
 
   const currentStates = useMemo(() => {
     if (!profiles) return null
@@ -959,10 +944,12 @@ function App() {
                   <>
                     <div className="building-list">
                       {filteredCurrentStates.map(({ slug, name, state }) => {
-                        const statusColor = getStatusColor(
+                        const baselineProfile = profiles?.[slug] ?? []
+                        const zScore = getLoadZScore(
                           state.energy_intensity_w_ft2,
-                          thresholds,
+                          baselineProfile,
                         )
+                        const statusColor = getLoadAnomalyStatusColor(zScore)
                         const loadPercent =
                           maxCurrentDemandKw > 0
                             ? (state.demand_kw / maxCurrentDemandKw) * 100
@@ -1013,23 +1000,23 @@ function App() {
                       </div>
                     )}
 
-                    <div className="overview-legend" aria-label="Energy intensity legend">
+                    <div className="overview-legend" aria-label="Load anomaly legend">
                       <div className="overview-divider" />
-                      <div className="legend-title">energy intensity</div>
+                      <div className="legend-title">load anomaly</div>
                       <div className="legend-ramp" />
                       <div className="legend-axis">
-                        <span>low</span>
-                        <span>moderate</span>
-                        <span>high</span>
-                        <span>very high</span>
+                        <span>typical</span>
+                        <span>elevated</span>
+                        <span>unusual</span>
+                        <span>extreme</span>
                       </div>
                       <div className="legend-values">
-                        <span>&lt; {thresholds.moderate.toFixed(2)}</span>
-                        <span>{thresholds.high.toFixed(2)}</span>
-                        <span>≥ {thresholds.veryHigh.toFixed(2)} W/ft²</span>
+                        <span>&lt; 1σ</span>
+                        <span>≥ 2σ</span>
+                        <span>≥ 3σ</span>
                       </div>
                       <div className="legend-formula">
-                        demand (W) ÷ floor area (ft²)
+                        current W/ft² vs this building's active-day mean
                       </div>
                     </div>
                   </>
