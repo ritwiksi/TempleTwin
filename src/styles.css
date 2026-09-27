@@ -992,3 +992,8 @@ input {
     display: none;
   }
 }
+
+.timeline-header-centered {
+  display: flex;
+  justify-content: center;
+}
