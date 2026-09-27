@@ -24,9 +24,18 @@ Use this immediately before creating the Vultr instance.
 - [ ] Ask Temple Twin declines clearly unrelated questions.
 - [ ] Smaller browser width is usable.
 
-## Secrets
+## Secrets and production environment
 
-- [ ] `.env` is not tracked.
+- [ ] `.env` is not tracked; repo `.gitignore` includes both `.env` and `.env.*`.
+- [ ] Copy `deploy/vultr.env.example` to repo-root `.env` on the server.
+- [ ] `docker-compose.yml` keeps `ENABLE_DIAGNOSTICS` defaulted to `false`.
+- [ ] `deploy/vultr.env.example` includes every backend runtime environment variable:
+  `DATABASE_URL`, `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`,
+  `SNOWFLAKE_PASSWORD`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`,
+  `SNOWFLAKE_SCHEMA`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_CORTEX_MODEL`,
+  and `ENABLE_DIAGNOSTICS`.
+- [ ] `VITE_CESIUM_ION_TOKEN` is populated for the frontend build.
+- [ ] `DATABASE_URL` includes the Tiger/PostgreSQL SSL requirement used by the account.
 - [ ] Real Tiger/Snowflake credentials are not in GitHub.
 - [ ] Cesium token is appropriately scoped.
 - [ ] Production will use `SNOWFLAKE_ROLE=TEMPLE_TWIN_APP`.
@@ -63,4 +72,16 @@ Use this immediately before creating the Vultr instance.
 - [ ] `SNOWFLAKE_DATABASE`
 - [ ] `SNOWFLAKE_SCHEMA`
 - [ ] `SNOWFLAKE_ROLE`
+- [ ] `SNOWFLAKE_CORTEX_MODEL`
+- [ ] `ENABLE_DIAGNOSTICS=false`
 - [ ] intended domain/subdomain
+
+
+## Vultr first-start checks
+
+- [ ] Run `./deploy/deploy.sh` from the repository root.
+- [ ] Cold-start health check succeeds within the script's 10 attempts.
+- [ ] `docker compose ps` shows both services running.
+- [ ] `curl -f http://127.0.0.1/health` returns healthy Tiger connectivity.
+- [ ] `curl -f http://127.0.0.1/api/simulation` returns simulation metadata.
+- [ ] Ask Temple Twin returns a real Cortex answer with diagnostics disabled.
