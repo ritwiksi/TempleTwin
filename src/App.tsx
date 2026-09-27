@@ -43,6 +43,7 @@ import type {
 type Mode = 'reality' | 'energy'
 
 const PLAY_INTERVAL_MS = 180
+const DEFAULT_VIEW_DATE = '2018-09-14'
 
 function getStatusColor(
   intensityWPerFt2: number,
@@ -232,7 +233,22 @@ function App() {
       ])
       setSimulation(simulationData)
       setBuildings(buildingData)
-      setCurrentIndex(Math.min(48, simulationData.total_intervals - 1))
+
+      const simulationStart = new Date(`${simulationData.start_date}T00:00:00`)
+      const preferredStart = new Date(`${DEFAULT_VIEW_DATE}T00:00:00`)
+      const dayOffset = Math.max(
+        0,
+        Math.floor(
+          (preferredStart.getTime() - simulationStart.getTime()) /
+            (24 * 60 * 60 * 1000),
+        ),
+      )
+      const preferredIndex =
+        dayOffset * simulationData.intervals_per_day +
+        Math.floor(simulationData.intervals_per_day / 2)
+      setCurrentIndex(
+        Math.min(preferredIndex, simulationData.total_intervals - 1),
+      )
     } catch (err) {
       console.error('Temple Twin metadata fetch failed:', err)
       setDataError('Temple Twin data could not be loaded from the API.')
@@ -426,9 +442,9 @@ function App() {
           backgroundPadding: new Cartesian2(9, 6),
           verticalOrigin: VerticalOrigin.BOTTOM,
           pixelOffset: new Cartesian2(0, -8),
-          scaleByDistance: new NearFarScalar(180, 1.0, 850, 0.82),
-          translucencyByDistance: new NearFarScalar(480, 1, 820, 0),
-          distanceDisplayCondition: new DistanceDisplayCondition(0, 850),
+          scaleByDistance: new NearFarScalar(220, 1.0, 1500, 0.76),
+          translucencyByDistance: new NearFarScalar(900, 1, 1550, 0.18),
+          distanceDisplayCondition: new DistanceDisplayCondition(0, 1650),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       })
